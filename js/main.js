@@ -73,6 +73,47 @@
     }
   }
 
+  /* ----- Hero name flies to About section ----- */
+  var heroName = document.getElementById("heroName");
+  var aboutName = document.getElementById("aboutName");
+  function updateHeroNameFlight() {
+    if (reduceMotion || !heroName || !aboutName || !heroSection) {
+      if (aboutName) aboutName.classList.add("is-visible");
+      return;
+    }
+    var scrollY = window.scrollY;
+    var heroHeight = heroSection.offsetHeight;
+    var t = Math.min(1, Math.max(0, scrollY / heroHeight));
+
+    if (t <= 0.02) {
+      heroName.style.transform = "";
+      heroName.style.opacity = "";
+      aboutName.classList.remove("is-visible");
+      return;
+    }
+
+    var heroRect = heroName.getBoundingClientRect();
+    var aboutRect = aboutName.getBoundingClientRect();
+    var scale = aboutRect.width / heroRect.width;
+    var tx = aboutRect.left - heroRect.left;
+    var ty = aboutRect.top - heroRect.top;
+
+    var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    var curScale = 1 + (scale - 1) * ease;
+    var curTX = tx * ease;
+    var curTY = ty * ease;
+
+    heroName.style.transform = "translate(" + curTX.toFixed(1) + "px," + curTY.toFixed(1) + "px) scale(" + curScale.toFixed(4) + ")";
+
+    if (t >= 0.82) {
+      heroName.style.opacity = "0";
+      aboutName.classList.add("is-visible");
+    } else {
+      heroName.style.opacity = String(1 - t * 0.4);
+      aboutName.classList.remove("is-visible");
+    }
+  }
+
   /* ----- Stat counter animation ----- */
   var statNums = document.querySelectorAll(".stat__num");
   var counterDone = false;
@@ -182,6 +223,7 @@
         updateNavState();
         updateProgressBar();
         updateHeroParallax();
+        updateHeroNameFlight();
         runCounters();
         updateTimeline();
         ticking = false;

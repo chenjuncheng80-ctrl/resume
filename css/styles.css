@@ -203,7 +203,11 @@ body.nav-light .scroll-progress {
   line-height: 1.05;
   letter-spacing: -0.03em;
   margin-bottom: 1.6rem;
+  will-change: transform, opacity;
+  transform-origin: top left;
 }
+#aboutName { opacity: 0; transition: opacity 0.4s ease; }
+#aboutName.is-visible { opacity: 1; }
 .hero__title .line { display: block; overflow: hidden; padding-bottom: 0.06em; }
 .hero__title .line > span { display: inline-block; }
 .hero__cn {
