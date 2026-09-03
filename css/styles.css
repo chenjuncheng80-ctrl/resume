@@ -201,7 +201,7 @@ body.nav-light .scroll-progress {
   font-weight: 300;
   font-size: clamp(3rem, 9vw, 7rem);
   line-height: 1.05;
-  letter-spacing: -0.03em;
+  letter-spacing: 2px;
   margin-bottom: 1.6rem;
 }
 .hero__title .line { display: block; overflow: hidden; padding-bottom: 0.06em; }
