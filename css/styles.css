@@ -62,32 +62,33 @@ ul { list-style: none; }
   align-items: center;
   justify-content: space-between;
   padding: 0.9rem var(--pad);
+  background: rgba(18, 18, 18, 0.92);
   transition: background 0.4s var(--ease), box-shadow 0.4s var(--ease), backdrop-filter 0.4s;
 }
 .nav.is-scrolled {
-  background: rgba(250, 249, 246, 0.82);
+  background: rgba(18, 18, 18, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 var(--line);
+  box-shadow: 0 1px 0 var(--line-dark);
 }
 .nav.is-scrolled.is-on-dark {
-  background: rgba(18, 18, 18, 0.82);
-  box-shadow: 0 1px 0 var(--line-dark);
+  background: rgba(250, 249, 246, 0.85);
+  box-shadow: 0 1px 0 var(--line);
 }
 .nav__brand { display: flex; align-items: center; gap: 0.7rem; }
 .nav__monogram {
   width: 34px; height: 34px;
   display: grid; place-items: center;
-  background: var(--ink); color: var(--bg);
+  background: #f1efe9; color: var(--ink);
   font-family: var(--font-display);
   font-weight: 500; font-size: 1.05rem;
   border-radius: 50%;
 }
-.nav__name { font-weight: 700; letter-spacing: -0.01em; }
+.nav__name { font-weight: 700; letter-spacing: -0.01em; color: #f1efe9; }
 .nav__links { display: flex; align-items: center; gap: 1.6rem; }
 .nav__link {
   font-size: 0.85rem; font-weight: 600;
-  color: var(--muted);
+  color: var(--dark-muted);
   position: relative;
   transition: color 0.3s;
 }
@@ -95,31 +96,31 @@ ul { list-style: none; }
   content: "";
   position: absolute; left: 0; bottom: -4px;
   width: 100%; height: 1px;
-  background: var(--ink);
+  background: #f1efe9;
   transform: scaleX(0); transform-origin: left;
   transition: transform 0.35s var(--ease);
 }
-.nav__link:hover { color: var(--ink); }
+.nav__link:hover { color: #f1efe9; }
 .nav__link:hover::after { transform: scaleX(1); }
-.nav__link.is-active { color: var(--ink); }
+.nav__link.is-active { color: #f1efe9; }
 .nav__link.is-active::after { transform: scaleX(1); }
 .nav__link--cta {
-  color: var(--bg); background: var(--ink);
+  color: var(--ink); background: #f1efe9;
   padding: 0.5rem 1.1rem; border-radius: 999px;
 }
-.nav__link--cta:hover { background: #2c2c2c; color: var(--bg); }
+.nav__link--cta:hover { background: #ffffff; color: var(--ink); }
 .nav__link--cta::after { display: none; }
 
 /* Nav inverted over dark sections (Contact / footer) */
-.nav.is-on-dark .nav__name { color: #f1efe9; }
-.nav.is-on-dark .nav__monogram { background: #f1efe9; color: var(--ink); }
-.nav.is-on-dark .nav__link { color: var(--dark-muted); }
+.nav.is-on-dark .nav__name { color: var(--ink); }
+.nav.is-on-dark .nav__monogram { background: var(--ink); color: var(--bg); }
+.nav.is-on-dark .nav__link { color: var(--muted); }
 .nav.is-on-dark .nav__link:hover,
-.nav.is-on-dark .nav__link.is-active { color: #f1efe9; }
-.nav.is-on-dark .nav__link::after { background: #f1efe9; }
-.nav.is-on-dark .nav__link--cta { background: #f1efe9; color: var(--ink); }
-.nav.is-on-dark .nav__link--cta:hover { background: #ffffff; color: var(--ink); }
-.nav.is-on-dark .nav__toggle span { background: #f1efe9; }
+.nav.is-on-dark .nav__link.is-active { color: var(--ink); }
+.nav.is-on-dark .nav__link::after { background: var(--ink); }
+.nav.is-on-dark .nav__link--cta { background: var(--ink); color: var(--bg); }
+.nav.is-on-dark .nav__link--cta:hover { background: #2c2c2c; color: var(--bg); }
+.nav.is-on-dark .nav__toggle span { background: var(--ink); }
 
 .nav__toggle {
   display: none;
@@ -128,7 +129,7 @@ ul { list-style: none; }
   padding: 8px;
 }
 .nav__toggle span {
-  width: 22px; height: 2px; background: var(--ink);
+  width: 22px; height: 2px; background: #f1efe9;
   transition: transform 0.3s var(--ease);
 }
 
@@ -569,12 +570,12 @@ a.contact__row:hover .v { text-decoration: underline; text-underline-offset: 3px
   .nav__toggle { display: flex; position: relative; z-index: 60; }
   .nav__toggle.is-open span:first-child { transform: translateY(3.5px) rotate(45deg); }
   .nav__toggle.is-open span:last-child { transform: translateY(-3.5px) rotate(-45deg); }
-  .nav.is-on-dark .nav__links.is-open .nav__link,
-  .nav.is-on-dark .nav__links.is-open .nav__link:hover,
-  .nav.is-on-dark .nav__links.is-open .nav__link.is-active { color: var(--ink); }
-  .nav.is-on-dark .nav__links.is-open .nav__link::after { background: var(--ink); }
-  .nav.is-on-dark .nav__links.is-open .nav__link--cta { background: var(--ink); color: var(--bg); }
-  .nav.is-on-dark .nav__toggle.is-open span { background: var(--ink); }
+  .nav__links.is-open .nav__link,
+  .nav__links.is-open .nav__link:hover,
+  .nav__links.is-open .nav__link.is-active { color: var(--ink); }
+  .nav__links.is-open .nav__link::after { background: var(--ink); }
+  .nav__links.is-open .nav__link--cta { background: var(--ink); color: var(--bg); }
+  .nav__toggle.is-open span { background: var(--ink); }
   .hero__side { flex-direction: column; align-items: flex-start; }
   .hero__portrait { margin: 0 auto; }
   .grid { grid-template-columns: 1fr; grid-auto-rows: 280px; }
