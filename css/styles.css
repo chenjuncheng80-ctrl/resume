@@ -206,27 +206,17 @@ body.nav-light .scroll-progress {
   will-change: transform, opacity;
   transform-origin: top left;
 }
-/* Font swap applied mid-flight: display serif -> body sans (smooth weight/letter-spacing) */
-.hero__title.is-body-font {
-  font-family: var(--font-body);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-#aboutName {
-  opacity: 0;
-  font-family: var(--font-body);
-  font-weight: 700;
-  transition: opacity 0.4s ease;
-}
-#aboutName.is-visible { opacity: 1; }
+  #aboutName {
+    font-family: var(--font-body);
+    font-weight: 700;
+  }
 .hero__title .line { display: block; overflow: hidden; padding-bottom: 0.06em; }
 .hero__title .line > span { display: inline-block; }
 .hero__cn {
   font-style: normal; font-weight: 400;
   font-size: 0.5em; color: var(--muted);
-  margin-left: 0.5rem; letter-spacing: 0.05em;
+  margin-left: 0.5rem;   letter-spacing: 0.05em;
   display: inline-block;
-  transition: opacity 0.3s ease;
 }
 .hero__lead {
   max-width: 34rem;

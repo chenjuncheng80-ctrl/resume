@@ -50,170 +50,36 @@
 
   /* ----- Hero elements ----- */
   var heroSection = document.querySelector(".hero");
-  var heroContent = document.querySelector(".hero__content");
+  var heroName = document.getElementById("heroName");
   var heroSide = document.querySelector(".hero__side");
   var heroEyebrow = document.querySelector(".hero__eyebrow");
   var heroLead = document.querySelector(".hero__lead");
   var heroActions = document.querySelector(".hero__actions");
   var heroFadeEls = [heroEyebrow, heroLead, heroActions].filter(Boolean);
 
-  /* ----- Hero parallax (excludes heroName so the name never fades) ----- */
+  /* ----- Hero fade + gentle drift (name and portrait fade out together) ----- */
   function updateHeroParallax(customScrollY) {
     if (reduceMotion || !heroSection) return;
     var scrollY = customScrollY !== undefined ? customScrollY : window.scrollY;
     var heroHeight = heroSection.offsetHeight;
     var progress = heroHeight > 0 ? Math.min(1, scrollY / heroHeight) : 0;
     var opacity = Math.max(0, 1 - progress * 2.4);
+    var drift = (scrollY * 0.12).toFixed(1);
 
     heroFadeEls.forEach(function (el) {
       el.style.transform = "translateY(" + (scrollY * 0.25).toFixed(1) + "px)";
       el.style.opacity = String(opacity);
     });
+    /* name + portrait drift and fade as one unit */
+    if (heroName) {
+      heroName.style.transform = "translateY(" + drift + "px)";
+      heroName.style.opacity = String(opacity);
+    }
     if (heroSide) {
-      heroSide.style.transform = "translateY(" + (scrollY * 0.12).toFixed(1) + "px)";
+      heroSide.style.transform = "translateY(" + drift + "px)";
       heroSide.style.opacity = String(opacity);
     }
   }
-
-  /* ----- Hero name flight to About (scroll-driven, no locking) ----- */
-  var heroName = document.getElementById("heroName");
-  var aboutName = document.getElementById("aboutName");
-  var aboutBig = aboutName ? aboutName.closest(".about__big") : null;
-  var heroCn = document.querySelector(".hero__cn");
-  var heroLines = heroName ? heroName.querySelectorAll(".line") : [];
-  var heroLine1 = heroLines[0] || null;
-  var heroLine2 = heroLines[1] || null;
-  var heroLine1Inner = heroLine1 ? heroLine1.querySelector("span") : null;
-  var heroLine2Inner = heroLine2 ? heroLine2.querySelector("span") : null;
-  var flightBase = null;
-  var flightTarget = null;
-  var flightDistance = 1;
-  var MERGE_GAP = 0.32; /* word gap between the two lines once merged onto one line */
-
-  /* Measure with transforms cleared so earlier frames don't pollute the rects */
-  function measureFlight() {
-    if (!heroName || !aboutName || !heroSection) return;
-
-    var prevT = heroName.style.transform;
-    var prevL2 = heroLine2 ? heroLine2.style.transform : "";
-    heroName.style.transform = "";
-    if (heroLine2) heroLine2.style.transform = "";
-
-    var r = heroName.getBoundingClientRect();
-    flightBase = {
-      top: r.top + window.scrollY,
-      left: r.left + window.scrollX,
-      width: r.width,
-      height: r.height
-    };
-
-    /* how far line 2 ("Shing") must travel to sit beside line 1 ("Chan Chun")
-       on a single merged line, and the natural width of that merged line */
-    if (heroLine1Inner && heroLine2Inner) {
-      var r1 = heroLine1Inner.getBoundingClientRect();
-      var r2 = heroLine2Inner.getBoundingClientRect();
-      var fs = parseFloat(getComputedStyle(heroName).fontSize) || 16;
-      flightBase.mergeX = (r1.right - r2.left) + fs * MERGE_GAP;
-      flightBase.mergeY = -(r2.top - r1.top);
-      /* merged single-line width = "Chan Chun" + word gap + "Shing" */
-      flightBase.width = r1.width + fs * MERGE_GAP + r2.width;
-    }
-
-    heroName.style.transform = prevT;
-    if (heroLine2) heroLine2.style.transform = prevL2;
-
-    var aboutRect = aboutName.getBoundingClientRect();
-    var aboutSection = document.getElementById("about");
-    var aboutTop = aboutSection ? aboutSection.offsetTop : window.innerHeight;
-    flightTarget = {
-      top: aboutRect.top + window.scrollY,
-      left: aboutRect.left + window.scrollX,
-      width: aboutRect.width,
-      height: aboutRect.height
-    };
-    /* the flight spans from the very top until About reaches the top */
-    flightDistance = Math.max(1, aboutTop);
-  }
-
-  function updateHeroNameFlight() {
-    if (reduceMotion || isTouch || !heroName || !aboutName) {
-      if (aboutName) aboutName.classList.add("is-visible");
-      if (aboutBig) aboutBig.classList.add("is-visible");
-      return;
-    }
-    if (!flightBase || !flightTarget) return;
-
-    /* progress comes from the real scroll position - nothing is locked */
-    var t = window.scrollY / flightDistance;
-    t = Math.max(0, Math.min(1, t));
-
-    if (t <= 0.001) {
-      heroName.style.transform = "";
-      heroName.style.opacity = "";
-      heroName.style.visibility = "";
-      heroName.classList.remove("is-body-font");
-      if (heroLine2) heroLine2.style.transform = "";
-      if (heroCn) heroCn.style.opacity = "";
-      aboutName.classList.remove("is-visible");
-      if (aboutBig) aboutBig.classList.remove("is-visible");
-      return;
-    }
-
-    var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-    /* top-left anchored positions (transform-origin: top left) in the viewport */
-    var baseTop = flightBase.top - window.scrollY;
-    var baseLeft = flightBase.left - window.scrollX;
-    var tgtTop = flightTarget.top - window.scrollY;
-    var tgtLeft = flightTarget.left - window.scrollX;
-
-    var dx = (tgtLeft - baseLeft) * ease;
-    var dy = (tgtTop - baseTop) * ease;
-    /* scale from 1 (hero size) down to aboutName size, interpolated by ease */
-    var s = (flightBase.width > 0 && flightTarget.width > 0) ? flightTarget.width / flightBase.width : 1;
-    var scale = 1 + (s - 1) * ease;
-
-    heroName.style.transform =
-      "translate(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px) scale(" + scale.toFixed(4) + ")";
-    heroName.style.opacity = "1";
-    heroName.style.visibility = "";
-
-    /* merge line 2 ("Shing 陳俊丞") up beside line 1 to form one line */
-    if (heroLine2 && flightBase.mergeX !== undefined) {
-      heroLine2.style.transform =
-        "translate(" + (flightBase.mergeX * ease).toFixed(1) + "px," +
-        (flightBase.mergeY * ease).toFixed(1) + "px)";
-    }
-
-    /* fade the Chinese name out as it flies (About only shows the English) */
-    if (heroCn) heroCn.style.opacity = String(Math.max(0, 1 - t * 1.7));
-
-    /* swap the display serif for the body font partway through the flight */
-    if (t >= 0.5) heroName.classList.add("is-body-font");
-    else heroName.classList.remove("is-body-font");
-
-    /* hand off to the real About name at the very end */
-    if (t >= 0.985) {
-      aboutName.classList.add("is-visible");
-      if (aboutBig) aboutBig.classList.add("is-visible");
-      heroName.style.visibility = "hidden";
-    } else {
-      aboutName.classList.remove("is-visible");
-      if (aboutBig) aboutBig.classList.remove("is-visible");
-    }
-  }
-
-  /* ----- Flight wiring (scroll-driven, NO scroll-locking) ----- */
-  function initFlight() {
-    measureFlight();
-    updateHeroNameFlight();
-  }
-  if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(function () { measureFlight(); updateHeroNameFlight(); });
-  }
-  window.addEventListener("resize", function () { measureFlight(); updateHeroNameFlight(); }, { passive: true });
-  window.addEventListener("load", function () { measureFlight(); updateHeroNameFlight(); });
-  initFlight();
 
   /* ----- Stat counter animation ----- */
   var statNums = document.querySelectorAll(".stat__num");
@@ -324,7 +190,6 @@
         updateNavState();
         updateProgressBar();
         updateHeroParallax();
-        updateHeroNameFlight();
         runCounters();
         updateTimeline();
         ticking = false;
