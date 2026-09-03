@@ -52,9 +52,9 @@
   var heroContent = document.querySelector(".hero__content");
   var heroSide = document.querySelector(".hero__side");
   var heroSection = document.querySelector(".hero");
-  function updateHeroParallax() {
+  function updateHeroParallax(customScrollY) {
     if (reduceMotion || !heroSection) return;
-    var scrollY = window.scrollY;
+    var scrollY = customScrollY !== undefined ? customScrollY : window.scrollY;
     var heroHeight = heroSection.offsetHeight;
     if (scrollY >= heroHeight) {
       if (heroContent) heroContent.style.opacity = "0";
@@ -73,45 +73,96 @@
     }
   }
 
-  /* ----- Hero name flies to About section ----- */
+  /* ----- Hero name flies to About with scroll lock (Apple-style) ----- */
   var heroName = document.getElementById("heroName");
   var aboutName = document.getElementById("aboutName");
-  function updateHeroNameFlight() {
-    if (reduceMotion || !heroName || !aboutName || !heroSection) {
+  var isFlightLocked = false;
+  var flightProgress = 0;
+  var flightTriggered = false;
+
+  function updateHeroNameFlight(t) {
+    if (reduceMotion || !heroName || !aboutName) {
       if (aboutName) aboutName.classList.add("is-visible");
       return;
     }
-    var scrollY = window.scrollY;
-    var heroHeight = heroSection.offsetHeight;
-    var t = Math.min(1, Math.max(0, scrollY / heroHeight));
-
-    if (t <= 0.02) {
+    if (t <= 0.01) {
       heroName.style.transform = "";
       heroName.style.opacity = "";
       aboutName.classList.remove("is-visible");
       return;
     }
-
     var heroRect = heroName.getBoundingClientRect();
     var aboutRect = aboutName.getBoundingClientRect();
+    if (heroRect.width === 0 || aboutRect.width === 0) return;
     var scale = aboutRect.width / heroRect.width;
     var tx = aboutRect.left - heroRect.left;
     var ty = aboutRect.top - heroRect.top;
-
     var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     var curScale = 1 + (scale - 1) * ease;
     var curTX = tx * ease;
     var curTY = ty * ease;
-
     heroName.style.transform = "translate(" + curTX.toFixed(1) + "px," + curTY.toFixed(1) + "px) scale(" + curScale.toFixed(4) + ")";
-
-    if (t >= 0.82) {
+    if (t >= 0.92) {
       heroName.style.opacity = "0";
       aboutName.classList.add("is-visible");
     } else {
-      heroName.style.opacity = String(1 - t * 0.4);
+      heroName.style.opacity = "1";
       aboutName.classList.remove("is-visible");
     }
+  }
+
+  function setFlightProgress(p) {
+    flightProgress = Math.max(0, Math.min(1, p));
+    var virtualY = flightProgress * heroSection.offsetHeight;
+    updateHeroParallax(virtualY);
+    updateHeroNameFlight(flightProgress);
+    var bar = document.getElementById("scrollProgress");
+    if (bar) {
+      var docH = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.width = Math.min(100, (virtualY / docH) * 100) + "%";
+    }
+  }
+
+  if (!reduceMotion && !isTouch && heroName && aboutName) {
+    window.addEventListener("wheel", function (e) {
+      var aboutSection = document.getElementById("about");
+      var aboutTop = aboutSection ? aboutSection.offsetTop : window.innerHeight;
+
+      if (!isFlightLocked && !flightTriggered && e.deltaY > 0 && window.scrollY < 20) {
+        isFlightLocked = true;
+      }
+
+      if (isFlightLocked) {
+        e.preventDefault();
+        var delta = Math.abs(e.deltaY) / 700;
+        if (e.deltaY > 0) {
+          flightProgress += delta;
+        } else {
+          flightProgress -= delta;
+        }
+        setFlightProgress(flightProgress);
+
+        if (flightProgress >= 1) {
+          isFlightLocked = false;
+          flightTriggered = true;
+          window.scrollTo(0, aboutTop);
+        } else if (flightProgress <= 0) {
+          isFlightLocked = false;
+          flightProgress = 0;
+          setFlightProgress(0);
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener("scroll", function () {
+      if (window.scrollY < 10 && flightTriggered) {
+        flightTriggered = false;
+        flightProgress = 0;
+        setFlightProgress(0);
+      }
+    }, { passive: true });
+  } else {
+    if (aboutName) aboutName.classList.add("is-visible");
   }
 
   /* ----- Stat counter animation ----- */
@@ -223,7 +274,6 @@
         updateNavState();
         updateProgressBar();
         updateHeroParallax();
-        updateHeroNameFlight();
         runCounters();
         updateTimeline();
         ticking = false;
