@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 675" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c2c2c"/>
+      <stop offset="1" stop-color="#111111"/>
+    </linearGradient>
+    <radialGradient id="v" cx="50%" cy="45%" r="80%">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.4"/>
+    </radialGradient>
+    <filter id="g">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="900" height="675" fill="url(#bg)"/>
+  <rect x="80" y="90" width="740" height="360" fill="#f2f2f2"/>
+  <rect x="80" y="90" width="740" height="120" fill="#e4e4e4"/>
+  <rect x="80" y="90" width="740" height="24" fill="#333"/>
+  <rect x="140" y="130" width="80" height="14" fill="#888"/>
+  <rect x="700" y="130" width="80" height="14" fill="#888"/>
+  <rect x="80" y="360" width="740" height="90" fill="#d8d8d8"/>
+  <rect x="120" y="140" width="16" height="210" fill="#c8c8c8"/>
+  <rect x="250" y="140" width="16" height="210" fill="#c8c8c8"/>
+  <rect x="380" y="140" width="16" height="210" fill="#c8c8c8"/>
+  <rect x="510" y="140" width="16" height="210" fill="#c8c8c8"/>
+  <rect x="640" y="140" width="16" height="210" fill="#c8c8c8"/>
+  <rect x="770" y="140" width="16" height="210" fill="#c8c8c8"/>
+  <rect x="120" y="220" width="86" height="90" fill="#9a9a9a"/>
+  <rect x="250" y="220" width="86" height="90" fill="#b0b0b0"/>
+  <rect x="510" y="220" width="86" height="90" fill="#b0b0b0"/>
+  <rect x="640" y="220" width="86" height="90" fill="#9a9a9a"/>
+  <polygon points="0,675 900,675 900,600 0,540" fill="#000" opacity="0.5"/>
+  <rect width="900" height="675" fill="url(#v)"/>
+  <rect width="900" height="675" filter="url(#g)" opacity="0.05"/>
+</svg>

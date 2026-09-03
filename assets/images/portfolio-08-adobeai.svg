@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 675" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232323"/>
+      <stop offset="1" stop-color="#0a0a0a"/>
+    </linearGradient>
+    <radialGradient id="orb" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="v" cx="50%" cy="45%" r="80%">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.45"/>
+    </radialGradient>
+    <filter id="g">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="900" height="675" fill="url(#bg)"/>
+  <circle cx="450" cy="330" r="150" fill="url(#orb)"/>
+  <circle cx="450" cy="330" r="52" fill="#fafafa"/>
+  <circle cx="450" cy="330" r="52" fill="none" stroke="#c9c9c9" stroke-width="2"/>
+  <circle cx="450" cy="330" r="30" fill="none" stroke="#a0a0a0" stroke-width="1.5" stroke-dasharray="3 6"/>
+  <g stroke="#9a9a9a" stroke-width="1.5" fill="none" opacity="0.7">
+    <path d="M450 120 q 40 -26 84 -14 q 44 12 60 52"/>
+    <path d="M450 120 q -40 -26 -84 -14 q -44 12 -60 52"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="300" cy="180" r="5"/>
+    <circle cx="600" cy="180" r="5"/>
+    <circle cx="240" cy="300" r="4"/>
+    <circle cx="660" cy="300" r="4"/>
+    <circle cx="280" cy="460" r="5"/>
+    <circle cx="620" cy="460" r="5"/>
+    <circle cx="400" cy="120" r="4"/>
+    <circle cx="500" cy="120" r="4"/>
+  </g>
+  <rect width="900" height="675" fill="url(#v)"/>
+  <rect width="900" height="675" filter="url(#g)" opacity="0.05"/>
+</svg>
