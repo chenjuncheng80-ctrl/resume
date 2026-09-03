@@ -76,6 +76,8 @@
   /* ----- Hero name flies to About with scroll lock (Apple-style) ----- */
   var heroName = document.getElementById("heroName");
   var aboutName = document.getElementById("aboutName");
+  var aboutBig = aboutName ? aboutName.closest(".about__big") : null;
+  var heroCn = document.querySelector(".hero__cn");
   var isFlightLocked = false;
   var flightProgress = 0;
   var flightTriggered = false;
@@ -83,28 +85,44 @@
   function updateHeroNameFlight(t) {
     if (reduceMotion || !heroName || !aboutName) {
       if (aboutName) aboutName.classList.add("is-visible");
+      if (aboutBig) aboutBig.classList.add("is-visible");
       return;
     }
     if (t <= 0.01) {
       heroName.style.transform = "";
       heroName.style.opacity = "";
+      heroName.classList.remove("is-flying");
       aboutName.classList.remove("is-visible");
+      if (heroCn) heroCn.style.opacity = "";
       return;
     }
+
     var heroRect = heroName.getBoundingClientRect();
     var aboutRect = aboutName.getBoundingClientRect();
     if (heroRect.width === 0 || aboutRect.width === 0) return;
+
     var scale = aboutRect.width / heroRect.width;
-    var tx = aboutRect.left - heroRect.left;
-    var ty = aboutRect.top - heroRect.top;
+    var heroCX = heroRect.left + heroRect.width / 2;
+    var heroCY = heroRect.top + heroRect.height / 2;
+    var aboutCX = aboutRect.left + aboutRect.width / 2;
+    var aboutCY = aboutRect.top + aboutRect.height / 2;
+    var tx = aboutCX - heroCX;
+    var ty = aboutCY - heroCY;
+
     var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     var curScale = 1 + (scale - 1) * ease;
     var curTX = tx * ease;
     var curTY = ty * ease;
-    heroName.style.transform = "translate(" + curTX.toFixed(1) + "px," + curTY.toFixed(1) + "px) scale(" + curScale.toFixed(4) + ")";
-    if (t >= 0.92) {
+    heroName.style.transform =
+      "translate(" + curTX.toFixed(1) + "px," + curTY.toFixed(1) + "px) scale(" + curScale.toFixed(4) + ")";
+
+    /* 陳俊丞 fades out early in the flight (not part of About target) */
+    if (heroCn) heroCn.style.opacity = String(Math.max(0, 1 - t * 3));
+
+    if (t >= 0.9) {
       heroName.style.opacity = "0";
       aboutName.classList.add("is-visible");
+      if (aboutBig) aboutBig.classList.add("is-visible");
     } else {
       heroName.style.opacity = "1";
       aboutName.classList.remove("is-visible");
@@ -124,27 +142,26 @@
   }
 
   if (!reduceMotion && !isTouch && heroName && aboutName) {
-    window.addEventListener("wheel", function (e) {
-      var aboutSection = document.getElementById("about");
-      var aboutTop = aboutSection ? aboutSection.offsetTop : window.innerHeight;
+    var aboutSection = document.getElementById("about");
+    var aboutTop = aboutSection ? aboutSection.offsetTop : window.innerHeight;
 
-      if (!isFlightLocked && !flightTriggered && e.deltaY > 0 && window.scrollY < 20) {
+    window.addEventListener("wheel", function (e) {
+      if (!isFlightLocked && !flightTriggered && e.deltaY > 0 && window.scrollY < heroSection.offsetHeight * 0.4) {
         isFlightLocked = true;
+        heroName.classList.add("is-flying");
       }
 
       if (isFlightLocked) {
         e.preventDefault();
-        var delta = Math.abs(e.deltaY) / 700;
-        if (e.deltaY > 0) {
-          flightProgress += delta;
-        } else {
-          flightProgress -= delta;
-        }
+        var delta = Math.abs(e.deltaY) / 800;
+        if (e.deltaY > 0) flightProgress += delta;
+        else flightProgress -= delta;
         setFlightProgress(flightProgress);
 
         if (flightProgress >= 1) {
           isFlightLocked = false;
           flightTriggered = true;
+          heroName.classList.remove("is-flying");
           window.scrollTo(0, aboutTop);
         } else if (flightProgress <= 0) {
           isFlightLocked = false;
@@ -163,6 +180,7 @@
     }, { passive: true });
   } else {
     if (aboutName) aboutName.classList.add("is-visible");
+    if (aboutBig) aboutBig.classList.add("is-visible");
   }
 
   /* ----- Stat counter animation ----- */

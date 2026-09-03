@@ -206,7 +206,17 @@ body.nav-light .scroll-progress {
   will-change: transform, opacity;
   transform-origin: top left;
 }
-#aboutName { opacity: 0; transition: opacity 0.4s ease; }
+.hero__title.is-flying {
+  position: relative;
+  z-index: 10;
+  transform-origin: center center;
+}
+#aboutName {
+  opacity: 0;
+  font-family: var(--font-body);
+  font-weight: 700;
+  transition: opacity 0.4s ease;
+}
 #aboutName.is-visible { opacity: 1; }
 .hero__title .line { display: block; overflow: hidden; padding-bottom: 0.06em; }
 .hero__title .line > span { display: inline-block; }
@@ -214,6 +224,7 @@ body.nav-light .scroll-progress {
   font-style: normal; font-weight: 400;
   font-size: 0.5em; color: var(--muted);
   margin-left: 0.5rem; letter-spacing: 0.05em;
+  transition: opacity 0.3s ease;
 }
 .hero__lead {
   max-width: 34rem;
