@@ -206,12 +206,10 @@ body.nav-light .scroll-progress {
   will-change: transform, opacity;
   transform-origin: top left;
 }
-  #aboutName {
-    font-family: var(--font-body);
-    font-weight: 700;
-  }
 .hero__title .line { display: block; overflow: hidden; padding-bottom: 0.06em; }
 .hero__title .line > span { display: inline-block; }
+#aboutName { opacity: 0; transition: opacity 0.3s ease; }
+#aboutName.is-visible { opacity: 1; }
 .hero__cn {
   font-style: normal; font-weight: 400;
   font-size: 0.5em; color: var(--muted);
