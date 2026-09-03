@@ -206,10 +206,11 @@ body.nav-light .scroll-progress {
   will-change: transform, opacity;
   transform-origin: top left;
 }
-.hero__title.is-flying {
-  position: relative;
-  z-index: 10;
-  transform-origin: center center;
+/* Font swap applied mid-flight: display serif -> body sans (smooth weight/letter-spacing) */
+.hero__title.is-body-font {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 #aboutName {
   opacity: 0;

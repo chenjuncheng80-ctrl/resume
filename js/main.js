@@ -75,22 +75,30 @@
     }
   }
 
-  /* ----- Hero name flight to About (Apple-style scroll lock) ----- */
+  /* ----- Hero name flight to About (scroll-driven, no locking) ----- */
   var heroName = document.getElementById("heroName");
   var aboutName = document.getElementById("aboutName");
   var aboutBig = aboutName ? aboutName.closest(".about__big") : null;
   var heroCn = document.querySelector(".hero__cn");
-  var isFlightLocked = false;
-  var flightProgress = 0;
-  var flightTriggered = false;
+  var heroLines = heroName ? heroName.querySelectorAll(".line") : [];
+  var heroLine1 = heroLines[0] || null;
+  var heroLine2 = heroLines[1] || null;
+  var heroLine1Inner = heroLine1 ? heroLine1.querySelector("span") : null;
+  var heroLine2Inner = heroLine2 ? heroLine2.querySelector("span") : null;
   var flightBase = null;
   var flightTarget = null;
+  var flightDistance = 1;
+  var MERGE_GAP = 0.32; /* word gap between the two lines once merged onto one line */
 
-  /* Capture layout boxes with transform cleared, so rects aren't polluted by prior frames */
-  function captureFlightBase() {
+  /* Measure with transforms cleared so earlier frames don't pollute the rects */
+  function measureFlight() {
     if (!heroName || !aboutName || !heroSection) return;
-    var prev = heroName.style.transform;
+
+    var prevT = heroName.style.transform;
+    var prevL2 = heroLine2 ? heroLine2.style.transform : "";
     heroName.style.transform = "";
+    if (heroLine2) heroLine2.style.transform = "";
+
     var r = heroName.getBoundingClientRect();
     flightBase = {
       top: r.top + window.scrollY,
@@ -98,134 +106,114 @@
       width: r.width,
       height: r.height
     };
-    if (heroCn) {
-      var cr = heroCn.getBoundingClientRect();
-      flightBase.cnX = (cr.left + cr.width / 2) - (r.left + r.width / 2);
-      flightBase.cnY = (cr.top + cr.height / 2) - (r.top + r.height / 2);
-    }
-    heroName.style.transform = prev;
 
-    /* Where the About name will sit in the viewport once we scroll to About */
+    /* how far line 2 ("Shing") must travel to sit beside line 1 ("Chan Chun")
+       on a single merged line, and the natural width of that merged line */
+    if (heroLine1Inner && heroLine2Inner) {
+      var r1 = heroLine1Inner.getBoundingClientRect();
+      var r2 = heroLine2Inner.getBoundingClientRect();
+      var fs = parseFloat(getComputedStyle(heroName).fontSize) || 16;
+      flightBase.mergeX = (r1.right - r2.left) + fs * MERGE_GAP;
+      flightBase.mergeY = -(r2.top - r1.top);
+      /* merged single-line width = "Chan Chun" + word gap + "Shing" */
+      flightBase.width = r1.width + fs * MERGE_GAP + r2.width;
+    }
+
+    heroName.style.transform = prevT;
+    if (heroLine2) heroLine2.style.transform = prevL2;
+
     var aboutRect = aboutName.getBoundingClientRect();
     var aboutSection = document.getElementById("about");
     var aboutTop = aboutSection ? aboutSection.offsetTop : window.innerHeight;
     flightTarget = {
-      top: aboutRect.top + window.scrollY - aboutTop,
+      top: aboutRect.top + window.scrollY,
       left: aboutRect.left + window.scrollX,
       width: aboutRect.width,
       height: aboutRect.height
     };
+    /* the flight spans from the very top until About reaches the top */
+    flightDistance = Math.max(1, aboutTop);
   }
 
-  function updateHeroNameFlight(t) {
-    if (reduceMotion || !heroName || !aboutName) {
+  function updateHeroNameFlight() {
+    if (reduceMotion || isTouch || !heroName || !aboutName) {
       if (aboutName) aboutName.classList.add("is-visible");
       if (aboutBig) aboutBig.classList.add("is-visible");
       return;
     }
-    if (t <= 0.01) {
+    if (!flightBase || !flightTarget) return;
+
+    /* progress comes from the real scroll position - nothing is locked */
+    var t = window.scrollY / flightDistance;
+    t = Math.max(0, Math.min(1, t));
+
+    if (t <= 0.001) {
       heroName.style.transform = "";
       heroName.style.opacity = "";
       heroName.style.visibility = "";
-      heroName.classList.remove("is-flying");
+      heroName.classList.remove("is-body-font");
+      if (heroLine2) heroLine2.style.transform = "";
+      if (heroCn) heroCn.style.opacity = "";
       aboutName.classList.remove("is-visible");
-      if (heroCn) heroCn.style.transform = "";
+      if (aboutBig) aboutBig.classList.remove("is-visible");
       return;
     }
-    if (!flightBase || !flightTarget) return;
 
     var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
-    var curTop = flightBase.top - window.scrollY;
-    var curLeft = flightBase.left - window.scrollX;
+    /* top-left anchored positions (transform-origin: top left) in the viewport */
+    var baseTop = flightBase.top - window.scrollY;
+    var baseLeft = flightBase.left - window.scrollX;
+    var tgtTop = flightTarget.top - window.scrollY;
+    var tgtLeft = flightTarget.left - window.scrollX;
 
-    var tgtTop = curTop + (flightTarget.top - curTop) * ease;
-    var tgtLeft = curLeft + (flightTarget.left - curLeft) * ease;
-    var tgtW = flightBase.width + (flightTarget.width - flightBase.width) * ease;
-
-    var scale = flightBase.width > 0 ? tgtW / flightBase.width : 1;
-    var scaledH = flightBase.height * scale;
-
-    var dx = (tgtLeft + tgtW / 2) - (curLeft + flightBase.width / 2);
-    var dy = (tgtTop + scaledH / 2) - (curTop + flightBase.height / 2);
+    var dx = (tgtLeft - baseLeft) * ease;
+    var dy = (tgtTop - baseTop) * ease;
+    /* scale from 1 (hero size) down to aboutName size, interpolated by ease */
+    var s = (flightBase.width > 0 && flightTarget.width > 0) ? flightTarget.width / flightBase.width : 1;
+    var scale = 1 + (s - 1) * ease;
 
     heroName.style.transform =
       "translate(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px) scale(" + scale.toFixed(4) + ")";
-    /* fully visible for the whole flight - never fades out */
     heroName.style.opacity = "1";
     heroName.style.visibility = "";
 
-    /* 陳俊丞 stays put: inverse-compensate the parent transform */
-    if (heroCn && flightBase.cnX !== undefined) {
-      var vx = flightBase.cnX;
-      var vy = flightBase.cnY;
-      var Dx = vx * (1 - scale) - dx;
-      var Dy = vy * (1 - scale) - dy;
-      var cx = scale !== 0 ? Dx / scale : 0;
-      var cy = scale !== 0 ? Dy / scale : 0;
-      heroCn.style.transform = "translate(" + cx.toFixed(1) + "px," + cy.toFixed(1) + "px)";
+    /* merge line 2 ("Shing 陳俊丞") up beside line 1 to form one line */
+    if (heroLine2 && flightBase.mergeX !== undefined) {
+      heroLine2.style.transform =
+        "translate(" + (flightBase.mergeX * ease).toFixed(1) + "px," +
+        (flightBase.mergeY * ease).toFixed(1) + "px)";
+    }
+
+    /* fade the Chinese name out as it flies (About only shows the English) */
+    if (heroCn) heroCn.style.opacity = String(Math.max(0, 1 - t * 1.7));
+
+    /* swap the display serif for the body font partway through the flight */
+    if (t >= 0.5) heroName.classList.add("is-body-font");
+    else heroName.classList.remove("is-body-font");
+
+    /* hand off to the real About name at the very end */
+    if (t >= 0.985) {
+      aboutName.classList.add("is-visible");
+      if (aboutBig) aboutBig.classList.add("is-visible");
+      heroName.style.visibility = "hidden";
+    } else {
+      aboutName.classList.remove("is-visible");
+      if (aboutBig) aboutBig.classList.remove("is-visible");
     }
   }
 
-  function setFlightProgress(p) {
-    flightProgress = Math.max(0, Math.min(1, p));
-    var virtualY = flightProgress * heroSection.offsetHeight;
-    updateHeroParallax(virtualY);
-    updateHeroNameFlight(flightProgress);
-    var bar = document.getElementById("scrollProgress");
-    if (bar) {
-      var docH = document.documentElement.scrollHeight - window.innerHeight;
-      bar.style.width = Math.min(100, (virtualY / docH) * 100) + "%";
-    }
+  /* ----- Flight wiring (scroll-driven, NO scroll-locking) ----- */
+  function initFlight() {
+    measureFlight();
+    updateHeroNameFlight();
   }
-
-  if (!reduceMotion && !isTouch && heroName && aboutName) {
-    var aboutSectionEl = document.getElementById("about");
-    var aboutTopVal = aboutSectionEl ? aboutSectionEl.offsetTop : window.innerHeight;
-
-    window.addEventListener("wheel", function (e) {
-      if (!isFlightLocked && !flightTriggered && e.deltaY > 0 && window.scrollY < heroSection.offsetHeight * 0.4) {
-        isFlightLocked = true;
-        heroName.classList.add("is-flying");
-        captureFlightBase();
-      }
-
-      if (isFlightLocked) {
-        e.preventDefault();
-        var delta = Math.abs(e.deltaY) / 800;
-        if (e.deltaY > 0) flightProgress += delta;
-        else flightProgress -= delta;
-        setFlightProgress(flightProgress);
-
-        if (flightProgress >= 1) {
-          isFlightLocked = false;
-          flightTriggered = true;
-          aboutName.classList.add("is-visible");
-          if (aboutBig) aboutBig.classList.add("is-visible");
-          heroName.classList.remove("is-flying");
-          window.scrollTo(0, aboutTopVal);
-          setTimeout(function () {
-            heroName.style.visibility = "hidden";
-          }, 80);
-        } else if (flightProgress <= 0) {
-          isFlightLocked = false;
-          flightProgress = 0;
-          setFlightProgress(0);
-        }
-      }
-    }, { passive: false });
-
-    window.addEventListener("scroll", function () {
-      if (window.scrollY < 10 && flightTriggered) {
-        flightTriggered = false;
-        flightProgress = 0;
-        setFlightProgress(0);
-      }
-    }, { passive: true });
-  } else {
-    if (aboutName) aboutName.classList.add("is-visible");
-    if (aboutBig) aboutBig.classList.add("is-visible");
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { measureFlight(); updateHeroNameFlight(); });
   }
+  window.addEventListener("resize", function () { measureFlight(); updateHeroNameFlight(); }, { passive: true });
+  window.addEventListener("load", function () { measureFlight(); updateHeroNameFlight(); });
+  initFlight();
 
   /* ----- Stat counter animation ----- */
   var statNums = document.querySelectorAll(".stat__num");
@@ -336,6 +324,7 @@
         updateNavState();
         updateProgressBar();
         updateHeroParallax();
+        updateHeroNameFlight();
         runCounters();
         updateTimeline();
         ticking = false;
