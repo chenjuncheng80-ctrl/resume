@@ -48,118 +48,6 @@
     progressBar.style.width = progress + "%";
   }
 
-  /* ----- Hero elements ----- */
-  var heroSection = document.querySelector(".hero");
-  var heroName = document.getElementById("heroName");
-  var heroSide = document.querySelector(".hero__side");
-  var heroEyebrow = document.querySelector(".hero__eyebrow");
-  var heroLead = document.querySelector(".hero__lead");
-  var heroActions = document.querySelector(".hero__actions");
-  var heroFadeEls = [heroEyebrow, heroLead, heroActions].filter(Boolean);
-
-  /* ----- Hero fade + gentle drift (name and portrait fade out together) ----- */
-  function updateHeroParallax(customScrollY) {
-    if (reduceMotion || !heroSection) return;
-    var scrollY = customScrollY !== undefined ? customScrollY : window.scrollY;
-    var heroHeight = heroSection.offsetHeight;
-    var progress = heroHeight > 0 ? Math.min(1, scrollY / heroHeight) : 0;
-    var opacity = Math.max(0, 1 - progress * 2.4);
-    var drift = (scrollY * 0.12).toFixed(1);
-
-    heroFadeEls.forEach(function (el) {
-      el.style.transform = "translateY(" + (scrollY * 0.25).toFixed(1) + "px)";
-      el.style.opacity = String(opacity);
-    });
-    /* name + portrait drift and fade as one unit */
-    if (heroName) {
-      heroName.style.transform = "translateY(" + drift + "px)";
-      heroName.style.opacity = String(opacity);
-    }
-    if (heroSide) {
-      heroSide.style.transform = "translateY(" + drift + "px)";
-      heroSide.style.opacity = String(opacity);
-    }
-  }
-
-  /* ----- Hero name flies to About (scroll-locked, Apple-style) ----- */
-  var aboutName = document.getElementById("aboutName");
-  var isFlightLocked = false;
-  var flightProgress = 0;
-  var flightTriggered = false;
-
-  function updateHeroNameFlight(t) {
-    if (!heroName || !aboutName) return;
-    if (t <= 0.01) {
-      heroName.style.transform = "";
-      heroName.style.opacity = "";
-      aboutName.classList.remove("is-visible");
-      return;
-    }
-    var heroRect = heroName.getBoundingClientRect();
-    var aboutRect = aboutName.getBoundingClientRect();
-    if (heroRect.width === 0 || aboutRect.width === 0) return;
-    var scale = aboutRect.width / heroRect.width;
-    var tx = aboutRect.left - heroRect.left;
-    var ty = aboutRect.top - heroRect.top;
-    var ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    var curScale = 1 + (scale - 1) * ease;
-    heroName.style.transform = "translate(" + (tx * ease).toFixed(1) + "px," + (ty * ease).toFixed(1) + "px) scale(" + curScale.toFixed(4) + ")";
-    if (t >= 0.9) {
-      heroName.style.opacity = "0";
-      aboutName.classList.add("is-visible");
-    } else {
-      heroName.style.opacity = "1";
-      aboutName.classList.remove("is-visible");
-    }
-  }
-
-  function setFlightProgress(p) {
-    flightProgress = Math.max(0, Math.min(1, p));
-    var virtualY = flightProgress * (heroSection ? heroSection.offsetHeight : window.innerHeight);
-    updateHeroParallax(virtualY);
-    updateHeroNameFlight(flightProgress);
-    var bar = document.getElementById("scrollProgress");
-    if (bar) {
-      var docH = document.documentElement.scrollHeight - window.innerHeight;
-      bar.style.width = Math.min(100, (virtualY / docH) * 100) + "%";
-    }
-  }
-
-  if (!reduceMotion && !isTouch && heroName && aboutName) {
-    window.addEventListener("wheel", function (e) {
-      var aboutSection = document.getElementById("about");
-      var aboutTop = aboutSection ? aboutSection.offsetTop : window.innerHeight;
-      if (!isFlightLocked && !flightTriggered && e.deltaY > 0 && window.scrollY < 30) {
-        isFlightLocked = true;
-      }
-      if (isFlightLocked) {
-        e.preventDefault();
-        var delta = Math.abs(e.deltaY) / 600;
-        flightProgress += e.deltaY > 0 ? delta : -delta;
-        setFlightProgress(flightProgress);
-        if (flightProgress >= 1) {
-          isFlightLocked = false;
-          flightTriggered = true;
-          window.scrollTo(0, aboutTop);
-        } else if (flightProgress <= 0) {
-          isFlightLocked = false;
-          flightProgress = 0;
-          setFlightProgress(0);
-        }
-      }
-    }, { passive: false });
-
-    window.addEventListener("scroll", function () {
-      if (window.scrollY < 10 && flightTriggered) {
-        flightTriggered = false;
-        flightProgress = 0;
-        setFlightProgress(0);
-      }
-    }, { passive: true });
-  } else {
-    if (aboutName) aboutName.classList.add("is-visible");
-  }
-
   /* ----- Stat counter animation ----- */
   var statNums = document.querySelectorAll(".stat__num");
   var counterDone = false;
@@ -268,7 +156,6 @@
       requestAnimationFrame(function () {
         updateNavState();
         updateProgressBar();
-        updateHeroParallax();
         runCounters();
         updateTimeline();
         ticking = false;
