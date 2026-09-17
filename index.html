@@ -9,6 +9,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin data-page-node-id="XFyloLNoA1CPFUkKZB0flG" />
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;500;900&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" data-page-node-id="mIRKeFHJoBgm1cm071y4YE">
   <link rel="stylesheet" href="css/styles.css" data-page-node-id="OF1VznCpDB4LE1zM3dMVRJ" />
+  <!-- Set the language before first paint so the CJK font stack is right -->
+  <script>
+    try {
+      if (localStorage.getItem("ccs-lang") === "zh") document.documentElement.lang = "zh-Hant";
+    } catch (e) { /* ignore */ }
+  </script>
 </head>
 <body data-page-node-id="mhhmfGJCochRSLFbtKy4xr">
   <!-- Scroll progress bar -->
@@ -27,6 +33,11 @@
       <a href="#work" class="nav__link" data-page-node-id="ko0apAADpbxi0A3vT3CXvo">Portfolio</a>
       <a href="#contact" class="nav__link nav__link--cta" data-page-node-id="AdrVuGglvnUgf3vzj2F8Tf">Contact</a>
     </nav>
+    <!-- ===== Language switch ===== -->
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button type="button" class="lang-switch__opt is-active" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" class="lang-switch__opt" data-lang="zh" aria-pressed="false">中</button>
+    </div>
     <button class="nav__toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false" data-page-node-id="A28R5gWbtqI0zykCpu0xEJ">
       <span data-page-node-id="0nFDsXGKledXnOHf6HsnIl"></span><span data-page-node-id="OAOrQUbrS3bAcpNAJFVnaH"></span>
     </button>
@@ -479,13 +490,14 @@
   </main>
 
   <footer class="footer" data-page-node-id="9vmjdl8sXRq5oBDeqw8wPS">
-    <p data-page-node-id="8e2pom9pEnhDg5GraLaQfE">© <span id="year" data-page-node-id="YTxmOaZE3RsdlK8koz0CJB"></span> Chan Chun Shing (陳俊丞). All rights reserved.</p>
+    <p data-page-node-id="8e2pom9pEnhDg5GraLaQfE">© <span id="year" data-page-node-id="YTxmOaZE3RsdlK8koz0CJB"></span> <span data-i18n="footer.rights">Chan Chun Shing (陳俊丞). All rights reserved.</span></p>
     <p class="footer__mono" data-page-node-id="o5YrlhOdGZKcLGwgVNVWNk">Designed in black &amp; white — like the city I photograph.</p>
   </footer>
 
   <script src="js/ascii-ripple.js"></script>
   <script src="js/hero-tilt.js"></script>
   <script src="js/target-cursor.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

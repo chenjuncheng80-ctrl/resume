@@ -18,6 +18,9 @@
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  /* CJK fallbacks — only ever used by the 中文 translation, which swaps the
+     three families above so the Latin glyphs stay in the Latin faces. */
+  --font-cjk: "PingFang SC", "PingFang HK", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
 
   --maxw: 1200px;
   --pad: clamp(1.25rem, 4vw, 3rem);
@@ -27,6 +30,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; }
+
+/* Chinese copy: keep the Latin faces, fall back to a CJK family per glyph */
+html[lang^="zh"] {
+  --font-display: "Fraunces", var(--font-cjk);
+  --font-body: "Manrope", var(--font-cjk);
+  --font-mono: "JetBrains Mono", var(--font-cjk);
+}
 
 body {
   font-family: var(--font-body);
@@ -123,6 +133,47 @@ ul { list-style: none; }
   color: var(--ink);
   box-shadow: 0 0 0 1px rgba(255,255,255,0.3);
 }
+
+/* ---------- Language switch (EN / 中) ---------- */
+.lang-switch {
+  position: relative;
+  z-index: 60;              /* stays above the mobile menu panel */
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(241, 239, 233, 0.35);
+  border-radius: 999px;
+  transition: border-color 0.35s var(--ease);
+}
+.lang-switch__opt {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  color: #f1efe9;
+  opacity: 0.6;
+  transition: opacity 0.25s, background 0.25s var(--ease), color 0.25s var(--ease);
+}
+.lang-switch__opt:hover { opacity: 1; }
+.lang-switch__opt:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.lang-switch__opt.is-active { opacity: 1; background: #f1efe9; color: var(--ink); }
+
+/* Inverted: nav over a light section, or the open (light) mobile menu */
+.nav.is-on-dark .lang-switch { border-color: rgba(20, 20, 20, 0.3); }
+.nav.is-on-dark .lang-switch__opt { color: var(--ink); }
+.nav.is-on-dark .lang-switch__opt.is-active { background: var(--ink); color: var(--bg); }
+.lang-switch.is-on-light { border-color: rgba(20, 20, 20, 0.3); }
+.lang-switch.is-on-light .lang-switch__opt { color: var(--ink); }
+.lang-switch.is-on-light .lang-switch__opt.is-active { background: var(--ink); color: var(--bg); }
 
 /* Nav inverted over dark sections (Experience / Contact / footer) */
 .nav.is-on-dark .nav__name { color: var(--ink); }
