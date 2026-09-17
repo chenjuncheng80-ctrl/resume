@@ -333,13 +333,30 @@
     toast(isNew ? "Work added — publish to go live." : "Work updated.", "ok");
   }
 
+  /* Removing a file has to happen in one place, not two. A file uploaded during
+     this session and then deleted again must simply never be sent — otherwise
+     the same path lands in the commit tree as both an add and a delete, which
+     GitHub rejects. Only files already in the repo need a delete entry. */
+  function discardFile(p) {
+    if (!p || !/^assets\//.test(p)) return;
+    var pending = false;
+    S.uploads = S.uploads.filter(function (u) {
+      if (u.path !== p) return true;
+      pending = true;
+      return false;
+    });
+    if (!pending && S.deletes.indexOf(p) === -1) S.deletes.push(p);
+  }
+
   function deleteWork(i) {
     var w = S.works.works[i];
     if (!confirm('Delete “' + (w.title || "untitled") + '”?')) return;
     var dropMedia = confirm("Also delete its media file from the repo (" + (w.src || "—") + ")?");
     S.works.works.splice(i, 1);
-    if (dropMedia && /^assets\//.test(w.src || "")) S.deletes.push(w.src);
-    if (dropMedia && /^assets\//.test(w.poster || "")) S.deletes.push(w.poster);
+    if (dropMedia) {
+      discardFile(w.src);
+      discardFile(w.poster);
+    }
     markDirty();
     renderWorks();
   }
@@ -454,9 +471,7 @@
       }));
       ops.appendChild(miniBtn("Delete", function () {
         if (!confirm("Delete " + f.name + " from the repo?")) return;
-        var pending = S.uploads.filter(function (u) { return u.path === f.path; }).length;
-        S.uploads = S.uploads.filter(function (u) { return u.path !== f.path; });
-        if (!pending) S.deletes.push(f.path);
+        discardFile(f.path);
         S.files.files.splice(S.files.files.indexOf(f), 1);
         markDirty();
         renderFiles();

@@ -2,14 +2,25 @@
    The cards used to be hard-coded in index.html; now the admin can add,
    reorder and remove them without touching markup.
 
-   The data arrives two ways, and we prefer the first one:
-     1. data/works.js — a <script> tag that sets window.PORTFOLIO_WORKS.
-        A script tag is the only way to read a data file when the page is
-        opened straight from disk (file://), where fetch() of a local file is
-        blocked by the browser ("Failed to fetch").
-     2. data/works.json — fetched at runtime, used when works.js is missing or
-        stale (for example a page cached before this change).
-   The admin rewrites both files on every publish, so they never drift. */
+   Which of the two data files wins depends on how the page was opened.
+
+     file://  (index.html double-clicked)
+              The browser refuses to fetch a local file — it rejects with
+              "Failed to fetch". Only a <script> tag can read data here, so we
+              use window.PORTFOLIO_WORKS from data/works.js and never touch the
+              network. Side effect worth knowing: this copy is a snapshot. It
+              does not see anything published through the admin, because that
+              goes to GitHub, not to disk. Run sync.bat (or git pull) to update.
+
+     http(s)  (deployed on Vercel)
+              Fetch data/works.json live, with a cache-buster, so anything you
+              published shows up on a plain refresh instead of whenever the CDN
+              happens to revalidate data/works.js. Fall back to the same payload
+              from data/works.js if that fetch ever fails.
+
+   data/works.json is the source of truth; data/works.js is generated from it
+   (tools/build_works_js.py, and by the admin on every publish), so the two are
+   always identical — rendering from either is safe. */
 (function () {
   "use strict";
 
@@ -25,14 +36,26 @@
     return window.location.protocol === "file:";
   }
 
-  function load() {
-    var inline = window.PORTFOLIO_WORKS;
-    if (inline && inline.works && inline.works.length) return Promise.resolve(inline);
+  function hasInline() {
+    var i = window.PORTFOLIO_WORKS;
+    return !!i && Object.prototype.toString.call(i.works) === "[object Array]";
+  }
 
-    return fetch("data/works.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) {
-      if (!r.ok) throw new Error("works.json " + r.status);
-      return r.json();
-    });
+  function load() {
+    if (local()) {
+      if (hasInline()) return Promise.resolve(window.PORTFOLIO_WORKS);
+      return Promise.reject(new Error("data/works.js never loaded"));
+    }
+
+    return fetch("data/works.json?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("works.json " + r.status);
+        return r.json();
+      })
+      .catch(function (err) {
+        if (hasInline()) return window.PORTFOLIO_WORKS;
+        throw err;
+      });
   }
 
   /* Shown only when there is no data at all. Opened from disk the usual cause
@@ -217,8 +240,46 @@
     }
   }
 
+  /* Opening index.html by double-clicking gives you a snapshot of whatever was
+     last pulled — publishing through the admin writes to GitHub, not to disk.
+     Without this note, an unchanged local grid reads as "my delete didn't
+     work". Shown once per browser, dismissible. */
+  var LIVE_SITE = "https://resume-coral-iota.vercel.app";
+  var HINT_KEY = "ccs-hide-local-hint";
+
+  function localNotice() {
+    if (!local()) return;
+    var box = document.getElementById("localHint");
+    if (!box) return;
+    var dismissed = false;
+    try { dismissed = localStorage.getItem(HINT_KEY) === "1"; } catch (e) {}
+    if (dismissed) return;
+
+    var text = document.getElementById("localHintText");
+    if (text && !text.textContent) {
+      text.appendChild(document.createTextNode("本地快照 · 后台发布的内容只会更新线上版本 "));
+      var a = document.createElement("a");
+      a.href = LIVE_SITE;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = LIVE_SITE.replace(/^https:\/\//, "");
+      text.appendChild(a);
+      text.appendChild(document.createTextNode(" · 要同步这份文件，双击 sync.bat"));
+    }
+    box.hidden = false;
+
+    var close = document.getElementById("localHintClose");
+    if (close) {
+      close.addEventListener("click", function () {
+        box.hidden = true;
+        try { localStorage.setItem(HINT_KEY, "1"); } catch (e) {}
+      });
+    }
+  }
+
   function start() {
     if (!document.getElementById(GRID_ID)) return;
+    localNotice();
     load().then(function (data) {
       state.data = data;
       renderAll();

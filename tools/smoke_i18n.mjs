@@ -1,13 +1,35 @@
-/* Smoke test: load the site in jsdom, click the language switch, verify that
-   the copy flips and that switching back restores the English exactly.
-   Run: NODE_PATH=<workspace>/node_modules node tools/smoke_i18n.mjs */
-import { JSDOM } from "file:///C:/Users/chenj/.workbuddy/binaries/node/workspace/node_modules/jsdom/lib/api.js";
+/* Smoke test: load the site in jsdom, click the language switch, verify the copy
+   flips and that switching back restores the English exactly.
 
-const URL = "http://127.0.0.1:8080/index.html";
-const dom = await JSDOM.fromURL(URL, {
+   The page is opened as a local file, which is also how it reads its data:
+   window.PORTFOLIO_WORKS from data/works.js. jsdom has no fetch and no
+   matchMedia, so those get stubbed for the scripts that would otherwise throw.
+   Run: node tools/smoke_i18n.mjs */
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+
+const require = createRequire("C:/Users/chenj/.workbuddy/binaries/node/workspace/package.json");
+const { JSDOM, VirtualConsole } = require("jsdom");
+
+const ROOT = path.resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+const vc = new VirtualConsole();
+vc.on("jsdomError", () => {});
+
+const dom = await JSDOM.fromFile(path.join(ROOT, "index.html"), {
   runScripts: "dangerously",
   resources: "usable",
   pretendToBeVisual: true,
+  virtualConsole: vc,
+  beforeParse(window) {
+    window.matchMedia = window.matchMedia || (() => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
+    window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+    window.fetch = (url) => {
+      const rel = decodeURIComponent(String(url).split("?")[0]);
+      try { return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"))) }); }
+      catch (e) { return Promise.resolve({ ok: false, status: 404, json: () => Promise.reject(new Error("no " + rel)) }); }
+    };
+  }
 });
 const { window } = dom;
 await new Promise((r) => setTimeout(r, 1500));
@@ -58,8 +80,8 @@ const expect = {
   RESTORE_TITLE: back.title === en.title,
 };
 
-console.log("EN  :", JSON.stringify(en, null, 0).slice(0, 400));
-console.log("ZH  :", JSON.stringify(zh, null, 0).slice(0, 400));
+console.log("EN  :", JSON.stringify(en).slice(0, 300));
+console.log("ZH  :", JSON.stringify(zh).slice(0, 300));
 let bad = 0;
 for (const [k, v] of Object.entries(expect)) {
   if (!v) { bad++; console.log("FAIL", k); }

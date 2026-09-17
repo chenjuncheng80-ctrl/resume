@@ -3,16 +3,27 @@
    the track clones to an even number of copies wide enough to cover two
    viewports, that every copy stays identical, and that the clones follow the
    language switcher. */
-import { JSDOM } from "file:///C:/Users/chenj/.workbuddy/binaries/node/workspace/node_modules/jsdom/lib/api.js";
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+
+const require = createRequire("C:/Users/chenj/.workbuddy/binaries/node/workspace/package.json");
+const { JSDOM, VirtualConsole } = require("jsdom");
+
+const ROOT = path.resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+const vc = new VirtualConsole();
+vc.on("jsdomError", () => {});
 
 const GROUP_WIDTH = 700;
 const VIEWPORT = 1920;
 const SPEED = 28;
 
-const dom = await JSDOM.fromURL("http://127.0.0.1:8080/index.html", {
+// Opened as a local file, like the real workflows — no dev server required.
+const dom = await JSDOM.fromFile(path.join(ROOT, "index.html"), {
   runScripts: "dangerously",
   resources: "usable",
   pretendToBeVisual: true,
+  virtualConsole: vc,
   beforeParse(window) {
     Object.defineProperty(window, "innerWidth", { value: VIEWPORT, configurable: true });
     window.Element.prototype.getBoundingClientRect = function () {
