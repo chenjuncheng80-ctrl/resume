@@ -298,16 +298,6 @@ window.PORTFOLIO_WORKS = {
       "poster": "assets/images/motion-06-poster.jpg",
       "link": "assets/videos/motion-06.mp4",
       "featured": false
-    },
-    {
-      "id": "w-mu5vmsa0lu46",
-      "title": "test",
-      "category": "photography",
-      "year": "2026",
-      "type": "image",
-      "alt": "",
-      "link": "#contact",
-      "src": "assets/works/1.jpeg"
     }
   ]
 };
