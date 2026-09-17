@@ -167,55 +167,99 @@ body.nav-light .scroll-progress {
   background: linear-gradient(90deg, var(--ink), var(--muted));
 }
 
-/* ---------- Hero ---------- */
+/* Hero ---------- */
 .hero {
   position: relative;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 7rem var(--pad) 0;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 5rem 0 0;   /* no inline padding: the title needs the full width */
+  overflow: hidden;
   background:
     radial-gradient(1200px 600px at 85% -10%, #ece9e1 0%, transparent 60%),
     var(--bg);
 }
-.hero__inner {
-  width: 100%; max-width: var(--maxw); margin: 0 auto;
-  display: grid; grid-template-columns: 1.6fr 1fr;
-  gap: clamp(2rem, 6vw, 6rem);
-  align-items: center;
-  position: relative;
+
+/* Readability veil, between the glyph layer and the content.
+   The ripple is at its liveliest exactly where the type sits: measured
+   mid-drag, the band behind the title drops to luma ~108 on paper 250, which
+   fights the headline. A soft paper veil restores the type's contrast and
+   fades to nothing before the hero's edges, so the ripple still reads around
+   the outside. Set --hero-veil: 0 to switch it off. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(58% 34% at 50% 50%,
+    rgba(250, 249, 246, var(--hero-veil, 0.93)) 0%,
+    rgba(250, 249, 246, var(--hero-veil-mid, 0.78)) 45%,
+    rgba(250, 249, 246, 0) 100%);
 }
-.hero__eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.78rem; letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 1.4rem;
+/* The ASCII Ripple — monospace liquid surface behind the hero content.
+   pointer-events:none because the hero element owns the pointer
+   listeners (the canvas is only a surface to paint on). */
+.hero__ascii {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  z-index: 0;
 }
+.hero__stage {
+  width: 100%; max-width: none;
+  /* auto block margins centre the stage in whatever space is left above the
+     marquee, which the same rule pins to the bottom of the hero */
+  margin-top: auto; margin-bottom: auto;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  position: relative;
+  z-index: 2;            /* above the ripple (0) and the readability veil (1) */
+}
+
+/* Hero typography is redone: the title is a real black-weight grotesque
+   (Archivo 900) paired with a light weight for the last word, as in the
+   reference composition. Supporting lines are Manrope. */
 .hero__title {
-  font-family: var(--font-display);
-  font-weight: 300;
-  font-size: clamp(3rem, 9vw, 7rem);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  margin-bottom: 1.6rem;
+  width: 100%;
+  font-weight: 400;
+  margin: clamp(0.5rem, 1.4vw, 1rem) 0 clamp(0.8rem, 1.8vw, 1.3rem);
 }
-.hero__title .line { display: block; overflow: hidden; padding-bottom: 0.06em; }
-.hero__title .line > span { display: inline-block; }
-.hero__cn {
-  font-style: normal; font-weight: 400;
-  font-size: 0.5em; color: var(--muted);
-  margin-left: 0.5rem;   letter-spacing: 0.05em;
-  display: inline-block;
+
+/* The pointer reaction tilts this element; `perspective` is set on the parent
+   by js/hero-tilt.js so the rotation reads as depth rather than a shear. */
+.hero__title-text {
+  display: block;
+  padding-inline: var(--pad);
+  font-family: "Archivo", var(--font-body);
+  font-size: clamp(2.7rem, 11vw, 8.6rem);
+  line-height: 0.96;
+  letter-spacing: -0.035em;
+  transform-style: preserve-3d;
+  will-change: transform;
 }
-.hero__lead {
-  max-width: 34rem;
-  font-size: 1.06rem; color: var(--muted);
-  margin-bottom: 2.2rem;
+.hero__title-heavy { font-weight: 900; }
+.hero__title-light { font-weight: 300; letter-spacing: -0.02em; }
+
+.hero__sub {
+  font-size: clamp(0.95rem, 1.3vw, 1.15rem);
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+  margin-bottom: clamp(1.1rem, 2.2vw, 1.6rem);
 }
-.hero__actions { display: flex; flex-wrap: wrap; gap: 0.9rem; }
+.hero__sep { margin: 0 0.55rem; color: var(--line); }
+
+/* the hero itself is unpadded so the title can span the viewport; the
+   supporting lines keep the page gutter */
+.hero__sub, .hero__actions, .hero__meta--row { padding-inline: var(--pad); }
+
+.hero__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.9rem; }
 
 .btn {
   display: inline-flex; align-items: center;
@@ -233,36 +277,48 @@ body.nav-light .scroll-progress {
 .btn--ghost { border-color: var(--line); color: var(--ink); background: transparent; }
 .btn--ghost:hover { border-color: var(--ink); }
 
-.hero__side { display: flex; flex-direction: column; gap: 2rem; }
+/* the disc above the title, as in the reference composition */
 .hero__portrait {
-  width: clamp(220px, 24vw, 300px);
+  width: clamp(76px, 9.5vw, 128px);
   aspect-ratio: 1;
   border-radius: 50%;
   display: grid; place-items: center;
   background:
-    radial-gradient(circle at 30% 30%, #2c2c2c, #0c0c0c 70%);
+    radial-gradient(circle at 32% 28%, #2c2c2c, #0c0c0c 72%);
   color: #f1efe9;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 60px -24px rgba(0,0,0,0.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 60px -28px rgba(0,0,0,0.45);
   margin: 0 auto;
 }
 .hero__portrait-text {
-  font-family: var(--font-display);
-  font-weight: 300;
-  font-size: 7rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 4.4vw, 3.6rem);
   line-height: 1;
+  letter-spacing: -0.02em;
 }
-.hero__meta { display: flex; flex-direction: column; gap: 0.9rem; }
-.hero__meta li {
-  display: flex; justify-content: space-between; gap: 1rem;
-  padding-bottom: 0.9rem;
-  border-bottom: 1px solid var(--line);
-  font-size: 0.9rem;
+
+.hero__meta--row {
+  flex-direction: row; flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem 2.2rem;
 }
-.hero__meta .k { color: var(--muted); font-weight: 500; white-space: nowrap; }
-.hero__meta .v { font-weight: 600; text-align: right; }
+.hero__meta--row li {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  padding-bottom: 0;
+  border-bottom: 0;
+  font-size: 0.82rem;
+}
+.hero__meta--row .k {
+  font-family: var(--font-mono);
+  font-size: 0.7rem; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500; white-space: nowrap;
+}
+.hero__meta--row .v { font-weight: 600; text-align: left; }
 
 .hero__marquee {
-  margin-top: 4rem;
+  margin-top: 1.4rem;
   border-top: 1px solid var(--line);
   padding: 1rem 0 1.2rem;
   overflow: hidden;
@@ -598,14 +654,6 @@ a.contact__row:hover .v { text-decoration: underline; text-underline-offset: 3px
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
-  .hero__inner { grid-template-columns: 1fr; }
-  .hero__side {
-    flex-direction: row; align-items: center; gap: 2rem;
-    margin-top: 1rem;
-  }
-  .hero__portrait { width: 160px; margin: 0; }
-  .hero__portrait-text { font-size: 4rem; }
-  .hero__meta { flex: 1; }
   .about__grid { grid-template-columns: 1fr; }
   .about__stats { grid-template-columns: repeat(2, 1fr); }
   .skills { grid-template-columns: 1fr; gap: 2.5rem; }
@@ -645,10 +693,57 @@ a.contact__row:hover .v { text-decoration: underline; text-underline-offset: 3px
   .nav__links.is-open .nav__link::after { background: var(--ink); }
   .nav__links.is-open .nav__link--cta { background: var(--ink); color: var(--bg); }
   .nav__toggle.is-open span { background: var(--ink); }
-  .hero__side { flex-direction: column; align-items: flex-start; }
-  .hero__portrait { margin: 0 auto; }
+  .hero__portrait { width: 104px; }
+  .hero__title-text { font-size: clamp(2.4rem, 13vw, 4.4rem); }
   .grid { grid-template-columns: 1fr; grid-auto-rows: 280px; }
   .footer { flex-direction: column; }
+}
+
+/* ---------- Target cursor (vanilla port of React Bits' TargetCursor) ---------- */
+/* Hide the native arrow while the reticle is running. body.style.cursor alone
+   is not enough: .btn / .filter / .nav__toggle set `cursor: pointer`, which
+   wins over the inherited value and leaves a stray arrow on exactly the
+   elements that have a target. */
+html.target-cursor-on,
+html.target-cursor-on * { cursor: none !important; }
+
+.target-cursor-wrapper {
+  position: fixed;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 2147483647;
+  mix-blend-mode: difference;   /* dark on the paper, white over dark sections */
+  transform: translate(-50%, -50%);
+}
+.target-cursor-dot {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 4px; height: 4px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+.target-cursor-corner {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 12px; height: 12px;
+  border: 3px solid #fff;
+  will-change: transform;
+}
+/* Pre-init rest positions: the CLOSED square. JS takes over the transform and
+   seeds from the same numbers, so there is no jump on the first frame. */
+.corner-tl { transform: translate(-100%, -100%); border-right: none; border-bottom: none; }
+.corner-tr { transform: translate(0%, -100%);    border-left: none;  border-bottom: none; }
+.corner-br { transform: translate(0%, 0%);       border-left: none;  border-top: none; }
+.corner-bl { transform: translate(-100%, 0%);    border-right: none; border-top: none; }
+
+/* Touch devices never get the reticle — keep the system behaviour */
+@media (pointer: coarse) {
+  html.target-cursor-on,
+  html.target-cursor-on * { cursor: auto !important; }
+  .target-cursor-wrapper { display: none; }
 }
 
 /* ---------- Reduced motion ---------- */
