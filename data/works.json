@@ -1,0 +1,298 @@
+{
+  "categories": [
+    {
+      "id": "photography",
+      "label": "Photography"
+    },
+    {
+      "id": "video",
+      "label": "Video Editing"
+    },
+    {
+      "id": "vfx",
+      "label": "VFX"
+    },
+    {
+      "id": "motion",
+      "label": "Motion Graphic"
+    },
+    {
+      "id": "retouch",
+      "label": "Retouching"
+    },
+    {
+      "id": "adobeai",
+      "label": "Adobe AI"
+    }
+  ],
+  "works": [
+    {
+      "id": "w-01",
+      "title": "The Rhythm of Life in the Alley",
+      "category": "photography",
+      "year": "2025",
+      "type": "image",
+      "src": "assets/images/portfolio-01-alley.svg",
+      "poster": "",
+      "link": "#contact",
+      "featured": false,
+      "alt": "The Rhythm of Life in the Alley — black and white photograph"
+    },
+    {
+      "id": "w-02",
+      "title": "Warm Moments on a Park Bench",
+      "category": "photography",
+      "year": "2025",
+      "type": "image",
+      "src": "assets/images/portfolio-02-bench.svg",
+      "poster": "",
+      "link": "#contact",
+      "featured": false,
+      "alt": "Warm Moments on a Park Bench — photograph"
+    },
+    {
+      "id": "w-03",
+      "title": "A 7-Eleven on a Street Corner",
+      "category": "photography",
+      "year": "2025",
+      "type": "image",
+      "src": "assets/images/portfolio-03-711.svg",
+      "poster": "",
+      "link": "#contact",
+      "featured": false,
+      "alt": "A 7-Eleven on a Street Corner — photograph"
+    },
+    {
+      "id": "w-04",
+      "title": "Live Stream Backstage",
+      "category": "video",
+      "year": "2026",
+      "type": "image",
+      "src": "assets/images/portfolio-04-livestream.svg",
+      "poster": "",
+      "link": "#contact",
+      "featured": false,
+      "alt": "Live Stream Backstage — production"
+    },
+    {
+      "id": "w-05",
+      "title": "Editing & Motion Design",
+      "category": "video",
+      "year": "Adobe Suite",
+      "type": "image",
+      "src": "assets/images/portfolio-05-video.svg",
+      "poster": "",
+      "link": "#contact",
+      "featured": false,
+      "alt": "Video Editing & Motion — Adobe Premiere Pro and After Effects"
+    },
+    {
+      "id": "w-06",
+      "title": "Edit Showreel",
+      "category": "video",
+      "year": "2026",
+      "type": "video",
+      "src": "assets/videos/video-01.mp4",
+      "poster": "assets/images/video-01-poster.jpg",
+      "link": "assets/videos/video-01.mp4",
+      "featured": false
+    },
+    {
+      "id": "w-07",
+      "title": "Visual Effects & Compositing",
+      "category": "vfx",
+      "year": "After Effects",
+      "type": "image",
+      "src": "assets/images/portfolio-06-vfx.svg",
+      "poster": "",
+      "link": "#contact",
+      "featured": false,
+      "alt": "Visual Effects & Compositing — After Effects"
+    },
+    {
+      "id": "w-08",
+      "title": "Effects Showreel",
+      "category": "vfx",
+      "year": "2026",
+      "type": "video",
+      "src": "assets/videos/vfx-01.mp4",
+      "poster": "assets/images/vfx-01-poster.jpg",
+      "link": "assets/videos/vfx-01.mp4",
+      "featured": false
+    },
+    {
+      "id": "w-09",
+      "title": "外星人 · Alien",
+      "category": "retouch",
+      "year": "Photoshop",
+      "type": "image",
+      "src": "assets/images/retouch/alien.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/alien.jpg",
+      "featured": false,
+      "alt": "Alien — Photoshop creative retouch"
+    },
+    {
+      "id": "w-10",
+      "title": "沙漠鲸鱼 · Desert Whale",
+      "category": "retouch",
+      "year": "Photoshop",
+      "type": "image",
+      "src": "assets/images/retouch/desert-whale.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/desert-whale.jpg",
+      "featured": false,
+      "alt": "Desert Whale — surreal Photoshop composite"
+    },
+    {
+      "id": "w-11",
+      "title": "蔬菜红绿灯",
+      "category": "retouch",
+      "year": "Photoshop",
+      "type": "image",
+      "src": "assets/images/retouch/vegetable-traffic-light.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/vegetable-traffic-light.jpg",
+      "featured": false,
+      "alt": "Vegetable Traffic Light — creative Photoshop composite"
+    },
+    {
+      "id": "w-12",
+      "title": "香蕉鸭 · Banana Duck",
+      "category": "retouch",
+      "year": "Photoshop",
+      "type": "image",
+      "src": "assets/images/retouch/banana-duck.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/banana-duck.jpg",
+      "featured": false,
+      "alt": "Banana Duck — creative Photoshop composite"
+    },
+    {
+      "id": "w-13",
+      "title": "Photo Edit · 01",
+      "category": "photography",
+      "year": "2024",
+      "type": "image",
+      "src": "assets/images/retouch/photo-01.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/photo-01.jpg",
+      "featured": false,
+      "alt": "Photo edit 01 — photography"
+    },
+    {
+      "id": "w-14",
+      "title": "Photo Edit · 02",
+      "category": "photography",
+      "year": "2024",
+      "type": "image",
+      "src": "assets/images/retouch/photo-02.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/photo-02.jpg",
+      "featured": false,
+      "alt": "Photo edit 02 — photography"
+    },
+    {
+      "id": "w-15",
+      "title": "Photo Edit · 03",
+      "category": "photography",
+      "year": "2024",
+      "type": "image",
+      "src": "assets/images/retouch/photo-03.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/photo-03.jpg",
+      "featured": false,
+      "alt": "Photo edit 03 — photography"
+    },
+    {
+      "id": "w-16",
+      "title": "Landscape Retouch",
+      "category": "retouch",
+      "year": "Photoshop",
+      "type": "image",
+      "src": "assets/images/retouch/landscape-retouch.jpg",
+      "poster": "",
+      "link": "assets/images/retouch/landscape-retouch.jpg",
+      "featured": false,
+      "alt": "Landscape retouch — color grading practice"
+    },
+    {
+      "id": "w-17",
+      "title": "Generative Imagery",
+      "category": "adobeai",
+      "year": "Firefly",
+      "type": "image",
+      "src": "assets/images/portfolio-08-adobeai.svg",
+      "poster": "",
+      "link": "#contact",
+      "featured": false,
+      "alt": "Generative Imagery — Adobe AI"
+    },
+    {
+      "id": "w-18",
+      "title": "Motion Graphic",
+      "category": "motion",
+      "year": "After Effects",
+      "type": "video",
+      "src": "assets/videos/motion-01.mp4",
+      "poster": "assets/images/motion-01-poster.jpg",
+      "link": "assets/videos/motion-01.mp4",
+      "featured": false
+    },
+    {
+      "id": "w-19",
+      "title": "Motion Showreel",
+      "category": "motion",
+      "year": "After Effects",
+      "type": "video",
+      "src": "assets/videos/motion-02.mp4",
+      "poster": "assets/images/motion-02-poster.jpg",
+      "link": "assets/videos/motion-02.mp4",
+      "featured": false
+    },
+    {
+      "id": "w-20",
+      "title": "Logo Animation",
+      "category": "motion",
+      "year": "After Effects",
+      "type": "video",
+      "src": "assets/videos/motion-03.mp4",
+      "poster": "assets/images/motion-03-poster.jpg",
+      "link": "assets/videos/motion-03.mp4",
+      "featured": false
+    },
+    {
+      "id": "w-21",
+      "title": "Motion Graphic",
+      "category": "motion",
+      "year": "After Effects",
+      "type": "video",
+      "src": "assets/videos/motion-04.mp4",
+      "poster": "assets/images/motion-04-poster.jpg",
+      "link": "assets/videos/motion-04.mp4",
+      "featured": false
+    },
+    {
+      "id": "w-22",
+      "title": "Motion Graphic",
+      "category": "motion",
+      "year": "After Effects",
+      "type": "video",
+      "src": "assets/videos/motion-05.mp4",
+      "poster": "assets/images/motion-05-poster.jpg",
+      "link": "assets/videos/motion-05.mp4",
+      "featured": false
+    },
+    {
+      "id": "w-23",
+      "title": "Motion Graphic",
+      "category": "motion",
+      "year": "After Effects",
+      "type": "video",
+      "src": "assets/videos/motion-06.mp4",
+      "poster": "assets/images/motion-06-poster.jpg",
+      "link": "assets/videos/motion-06.mp4",
+      "featured": false
+    }
+  ]
+}

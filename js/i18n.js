@@ -258,6 +258,17 @@
     }
   }
 
+  /* js/works.js rebuilds the work grid after this switcher has already run,
+     so it needs a way to translate (and to drop records for) fresh markup. */
+  window.CCSI18n = {
+    get: function () { return current; },
+    apply: function (root) { walk(root || document.body, current); },
+    forget: function (root) {
+      if (!root) return;
+      records = records.filter(function (r) { return !root.contains(r.el); });
+    }
+  };
+
   /* ---------- boot ---------- */
   function boot() {
     var saved = "en";

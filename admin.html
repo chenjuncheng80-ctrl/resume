@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Portfolio — Admin</title>
+<meta name="robots" content="noindex" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar__left">
+    <span class="bar__mark">CC</span>
+    <strong>Portfolio Admin</strong>
+    <span class="bar__repo" id="repoLabel"></span>
+  </div>
+  <div class="bar__right">
+    <span class="bar__status" id="status"></span>
+    <button class="btn btn--ghost" id="btnSettings" type="button">Repo</button>
+    <button class="btn" id="btnPublish" type="button" disabled>Publish</button>
+    <a class="btn btn--ghost" href="index.html" target="_blank" rel="noopener">View site ↗</a>
+  </div>
+</header>
+
+<!-- ===== connect ===== -->
+<section class="auth" id="auth">
+  <div class="auth__card">
+    <h1>Connect your GitHub repo</h1>
+    <p class="auth__lead">Works and files live in <code>data/works.json</code> and <code>data/files.json</code>. Publishing pushes one commit; Vercel rebuilds the site.</p>
+    <ol class="auth__steps">
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens</a>.</li>
+      <li>Under <strong>Repository access</strong> pick <em>Only select repositories</em> → <strong>resume</strong>.</li>
+      <li>Under <strong>Permissions → Repository permissions</strong>, set <strong>Contents</strong> to <em>Read and write</em>.</li>
+      <li>Generate the token and paste it below.</li>
+    </ol>
+    <label class="field">
+      <span>Personal access token</span>
+      <input type="password" id="tokenInput" placeholder="github_pat_…" autocomplete="off" />
+    </label>
+    <div class="auth__grid">
+      <label class="field"><span>Owner</span><input id="ownerInput" value="chenjuncheng80-ctrl" /></label>
+      <label class="field"><span>Repository</span><input id="repoInput" value="resume" /></label>
+      <label class="field"><span>Branch</span><input id="branchInput" value="main" /></label>
+    </div>
+    <p class="auth__err" id="authErr"></p>
+    <button class="btn" id="btnConnect" type="button">Connect</button>
+    <p class="auth__note">The token stays in this browser (<code>localStorage</code>). Nothing is sent anywhere except api.github.com.</p>
+  </div>
+</section>
+
+<!-- ===== app ===== -->
+<main class="app" id="app" hidden>
+  <nav class="tabs" id="tabs">
+    <button class="tab is-on" data-tab="works" type="button">Works</button>
+    <button class="tab" data-tab="files" type="button">Files</button>
+  </nav>
+
+  <!-- works -->
+  <section class="panel" data-panel="works">
+    <div class="panel__bar">
+      <h2>Selected Work <span class="count" id="worksCount"></span></h2>
+      <div class="panel__actions">
+        <button class="btn btn--ghost" id="btnCats" type="button">Categories</button>
+        <button class="btn" id="btnAddWork" type="button">+ Add work</button>
+      </div>
+    </div>
+    <p class="hint">Drag a row to reorder. Nothing changes on the live site until you hit <strong>Publish</strong>.</p>
+    <ul class="rows" id="workRows"></ul>
+  </section>
+
+  <!-- files -->
+  <section class="panel" data-panel="files" hidden>
+    <div class="panel__bar">
+      <h2>Files <span class="count" id="filesCount"></span></h2>
+      <div class="panel__actions">
+        <button class="btn" id="btnUpload" type="button">Upload files</button>
+        <input type="file" id="filePick" multiple hidden />
+      </div>
+    </div>
+
+    <div class="sub" style="border-top:0;padding-top:0;margin-bottom:1.5rem">
+      <div class="sub__head">
+        <h3>Resume / CV</h3>
+        <button class="btn btn--mini" id="btnResume" type="button">Replace PDF</button>
+        <input type="file" id="resumePick" accept="application/pdf,.pdf" hidden />
+      </div>
+      <p class="hint" id="resumeState">assets/Chan-Chun-Shing-Resume.pdf</p>
+    </div>
+
+    <p class="hint">Extra files (briefs, source files…) up to 25&nbsp;MB each. Publish to upload them.</p>
+    <div class="drop" id="drop">Drop files here, or click to choose</div>
+    <ul class="rows" id="fileRows"></ul>
+  </section>
+</main>
+
+<!-- ===== work editor ===== -->
+<div class="modal" id="workModal" hidden>
+  <div class="modal__box">
+    <header class="modal__head"><h3 id="workModalTitle">Edit work</h3><button class="modal__x" data-close type="button">×</button></header>
+    <div class="modal__body">
+      <div class="form__grid">
+        <label class="field"><span>Title</span><input data-w="title" /></label>
+        <label class="field"><span>Category</span><select data-w="category"></select></label>
+        <label class="field"><span>Year / caption</span><input data-w="year" placeholder="2026" /></label>
+        <label class="field"><span>Type</span>
+          <select data-w="type"><option value="image">Image</option><option value="video">Video</option></select>
+        </label>
+      </div>
+      <label class="field"><span>Alt text (optional)</span><input data-w="alt" placeholder="Used by screen readers and as a fallback caption" /></label>
+      <label class="field"><span>Link when clicked (optional)</span><input data-w="link" placeholder="#contact" /></label>
+      <div class="field">
+        <span>Media file</span>
+        <div class="media">
+          <div class="media__preview" id="mediaPreview"></div>
+          <div class="media__pick">
+            <button class="btn btn--ghost" id="btnPickMedia" type="button">Choose file…</button>
+            <input type="file" id="mediaPick" accept="image/*,video/*" hidden />
+            <p class="hint" id="mediaName">No file chosen</p>
+          </div>
+        </div>
+      </div>
+      <label class="field"><span>Poster image (videos only, optional)</span>
+        <div class="media">
+          <div class="media__pick">
+            <button class="btn btn--ghost" id="btnPickPoster" type="button">Choose poster…</button>
+            <input type="file" id="posterPick" accept="image/*" hidden />
+            <p class="hint" id="posterName">No poster</p>
+          </div>
+        </div>
+      </label>
+    </div>
+    <footer class="modal__foot">
+      <button class="btn btn--ghost" data-close type="button">Cancel</button>
+      <button class="btn" id="btnSaveWork" type="button">Save</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ===== category editor ===== -->
+<div class="modal" id="catModal" hidden>
+  <div class="modal__box modal__box--sm">
+    <header class="modal__head"><h3>Categories</h3><button class="modal__x" data-close type="button">×</button></header>
+    <div class="modal__body">
+      <ul class="sub__list" id="catList"></ul>
+      <button class="btn btn--mini" id="btnAddCat" type="button">+ Add category</button>
+    </div>
+    <footer class="modal__foot">
+      <button class="btn btn--ghost" data-close type="button">Close</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="js/github.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
