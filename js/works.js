@@ -1,6 +1,15 @@
 /* Renders the Selected Work grid from data/works.json.
    The cards used to be hard-coded in index.html; now the admin can add,
-   reorder and remove them without touching markup. */
+   reorder and remove them without touching markup.
+
+   The data arrives two ways, and we prefer the first one:
+     1. data/works.js — a <script> tag that sets window.PORTFOLIO_WORKS.
+        A script tag is the only way to read a data file when the page is
+        opened straight from disk (file://), where fetch() of a local file is
+        blocked by the browser ("Failed to fetch").
+     2. data/works.json — fetched at runtime, used when works.js is missing or
+        stale (for example a page cached before this change).
+   The admin rewrites both files on every publish, so they never drift. */
 (function () {
   "use strict";
 
@@ -12,11 +21,29 @@
   var videoIO = null;
   var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  function local() {
+    return window.location.protocol === "file:";
+  }
+
   function load() {
+    var inline = window.PORTFOLIO_WORKS;
+    if (inline && inline.works && inline.works.length) return Promise.resolve(inline);
+
     return fetch("data/works.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) {
       if (!r.ok) throw new Error("works.json " + r.status);
       return r.json();
     });
+  }
+
+  /* Shown only when there is no data at all. Opened from disk the usual cause
+     is a missing/broken data/works.js, so say that instead of a bare "Failed
+     to fetch". */
+  function loadError(err) {
+    if (local()) {
+      return "Could not load works — data/works.js is missing or invalid. " +
+        "Rebuild it with: python tools/build_works_js.py";
+    }
+    return "Could not load works (" + (err && err.message ? err.message : err) + ").";
   }
 
   function labelFor(id) {
@@ -197,7 +224,12 @@
       renderAll();
     }).catch(function (err) {
       var grid = document.getElementById(GRID_ID);
-      if (grid) grid.innerHTML = '<p class="section__note">Could not load works (' + err.message + ").</p>";
+      if (!grid) return;
+      var note = document.createElement("p");
+      note.className = "section__note";
+      note.textContent = loadError(err);
+      grid.innerHTML = "";
+      grid.appendChild(note);
     });
 
     document.addEventListener("i18n:change", function () {

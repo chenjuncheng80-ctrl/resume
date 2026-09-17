@@ -145,7 +145,30 @@
     if (e.status === 403) return "Forbidden (403). The token is missing Contents: Read and write, or you hit a rate limit.";
     if (e.status === 404) return "Not found (404). Check owner / repository / branch.";
     if (e.status === 422) return "Out of date (422). This repo moved since you loaded the page — reload and publish again.";
+    if (!e.status && location.protocol === "file:") {
+      return "A file:// page is not allowed to call api.github.com — open the online admin to publish.";
+    }
     return e.message || "Something went wrong.";
+  }
+
+  /* Opening admin.html by double-clicking it means a file:// origin, where the
+     browser refuses every request to api.github.com. Say so up front instead of
+     letting Connect fail with a cryptic "Failed to fetch". */
+  var LIVE_ADMIN = "https://resume-coral-iota.vercel.app/admin.html";
+
+  function showFileNotice() {
+    var n = $("#fileNotice");
+    if (!n || location.protocol !== "file:") return;
+    n.hidden = false;
+    n.appendChild(document.createTextNode(
+      "This page was opened from disk (file://). Previewing the site that way is fine, " +
+      "but the browser blocks api.github.com on a file:// page, so Connect and Publish will fail here. " +
+      "Publish from "
+    ));
+    var a = el("a", null, LIVE_ADMIN.replace(/^https:\/\//, ""));
+    a.href = LIVE_ADMIN;
+    n.appendChild(a);
+    n.appendChild(document.createTextNode(" instead."));
   }
 
   function pull() {
@@ -445,6 +468,21 @@
 
   /* ================= publish ================= */
 
+  /* data/works.js is data/works.json wrapped in a script tag. index.html loads
+     it with <script> so the grid still renders when the page is opened from
+     disk (file://), where fetch() of a local file is blocked. Both files are
+     rewritten together on publish, so they never drift. Keep this in sync with
+     tools/build_works_js.py, which produces the same output offline. */
+  function worksJsSource(works) {
+    return "/* Generated from data/works.json — do not edit by hand.\n" +
+      "   Loaded with a <script> tag so the Selected Work grid also renders when this\n" +
+      "   page is opened straight from disk (file://), where fetch() of a local file\n" +
+      "   is blocked by the browser. The admin rewrites this file on every publish;\n" +
+      "   to rebuild it by hand run:  python tools/build_works_js.py */\n" +
+      // \u003c keeps a stray "</script>" in a title from closing the tag early.
+      "window.PORTFOLIO_WORKS = " + JSON.stringify(works, null, 2).replace(/</g, "\\u003c") + ";\n";
+  }
+
   function publish() {
     var btn = $("#btnPublish");
     btn.disabled = true;
@@ -458,6 +496,7 @@
     });
     S.deletes.forEach(function (p) { changes.push({ path: p, delete: true }); });
     changes.push({ path: "data/works.json", content: GH.b64(JSON.stringify(S.works, null, 2) + "\n"), encoding: "base64" });
+    changes.push({ path: "data/works.js", content: GH.b64(worksJsSource(S.works)), encoding: "base64" });
     changes.push({ path: "data/files.json", content: GH.b64(JSON.stringify(S.files, null, 2) + "\n"), encoding: "base64" });
 
     GH.commit(S.owner, S.repo, S.branch, "Update portfolio content — " + new Date().toISOString().slice(0, 16).replace("T", " "), changes)

@@ -118,7 +118,6 @@
     "Generative Imagery": "生成式影像",
     "Motion Showreel": "動態作品集錦",
     "Logo Animation": "商標動畫",
-    "Adobe Suite": "Adobe 系列",
 
     /* contact */
     "Get in touch": "聯絡我",

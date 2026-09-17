@@ -24,6 +24,10 @@
   </div>
 </header>
 
+<!-- Warns only when this page was opened straight from disk: on a file://
+     origin the browser blocks requests to api.github.com. -->
+<p class="notice" id="fileNotice" hidden></p>
+
 <!-- ===== connect ===== -->
 <section class="auth" id="auth">
   <div class="auth__card">
