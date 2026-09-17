@@ -279,7 +279,9 @@ body.nav-light .scroll-progress {
 .hero__title {
   width: 100%;
   font-weight: 400;
-  margin: clamp(0.5rem, 1.4vw, 1rem) 0 clamp(0.8rem, 1.8vw, 1.3rem);
+  /* the bottom margin now carries the gap that used to be subtitle + subtitle
+     margin, so the buttons still sit clear of the title */
+  margin: clamp(0.5rem, 1.4vw, 1rem) 0 clamp(1.6rem, 3.2vw, 2.6rem);
 }
 
 /* The pointer reaction tilts this element; `perspective` is set on the parent
@@ -297,18 +299,9 @@ body.nav-light .scroll-progress {
 .hero__title-heavy { font-weight: 900; }
 .hero__title-light { font-weight: 300; letter-spacing: -0.02em; }
 
-.hero__sub {
-  font-size: clamp(0.95rem, 1.3vw, 1.15rem);
-  font-weight: 500;
-  color: var(--muted);
-  letter-spacing: 0.01em;
-  margin-bottom: clamp(1.1rem, 2.2vw, 1.6rem);
-}
-.hero__sep { margin: 0 0.55rem; color: var(--line); }
-
-/* the hero itself is unpadded so the title can span the viewport; the
-   supporting lines keep the page gutter */
-.hero__sub, .hero__actions, .hero__meta--row { padding-inline: var(--pad); }
+/* the hero itself is unpadded so the title can span the viewport; the button
+   row keeps the page gutter */
+.hero__actions { padding-inline: var(--pad); }
 
 .hero__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.9rem; }
 
@@ -347,26 +340,6 @@ body.nav-light .scroll-progress {
   line-height: 1;
   letter-spacing: -0.02em;
 }
-
-.hero__meta--row {
-  flex-direction: row; flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.55rem 2.2rem;
-}
-.hero__meta--row li {
-  display: flex; align-items: baseline; gap: 0.6rem;
-  padding-bottom: 0;
-  border-bottom: 0;
-  font-size: 0.82rem;
-}
-.hero__meta--row .k {
-  font-family: var(--font-mono);
-  font-size: 0.7rem; letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 500; white-space: nowrap;
-}
-.hero__meta--row .v { font-weight: 600; text-align: left; }
 
 .hero__marquee {
   margin-top: 1.4rem;

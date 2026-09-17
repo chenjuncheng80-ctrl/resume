@@ -25,13 +25,10 @@
     "Portfolio": "作品集",
     "Contact": "聯絡",
     "HI ! I am": "你好！我是",
-    "Digital Media & Photography / Sha Tin, Hong Kong": "數碼媒體與攝影 / 香港 沙田",
     "View Portfolio": "查看作品集",
     "Download Resume": "下載履歷",
     "Education": "教育",
     "HKDI · Digital Media": "HKDI · 數碼媒體",
-    "Available": "可到崗",
-    "From 25 May 2026": "2026 年 5 月 25 日起",
 
     /* marquee + skills tags + portfolio categories */
     "Photography": "攝影",

@@ -37,7 +37,7 @@ const doc = window.document;
 
 const probe = () => ({
   link1: doc.querySelector(".nav__link").textContent,
-  heroSub: doc.querySelector(".hero__sub").textContent.replace(/\s+/g, " ").trim(),
+  heroCta: doc.querySelector(".hero__actions .btn").textContent.replace(/\s+/g, " ").trim(),
   about: doc.querySelector(".about__big").textContent.replace(/\s+/g, " ").trim().slice(0, 30),
   contact: doc.querySelector(".contact__big").textContent,
   role: doc.querySelector(".timeline__role").textContent,
@@ -64,7 +64,7 @@ const expect = {
   ZH_ACTIVE: zh.active === "zh",
   ZH_LANG: zh.lang === "zh-Hant",
   ZH_NAV: zh.link1 === "關於",
-  ZH_HERO: zh.heroSub.includes("香港"),
+  ZH_HERO: zh.heroCta === "查看作品集",
   ZH_ABOUT: zh.about.includes("陳俊丞"),
   ZH_CONTACT: zh.contact.includes("項目"),
   ZH_ROLE: zh.role === "直播後台助理",
