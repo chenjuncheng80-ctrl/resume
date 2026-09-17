@@ -248,6 +248,11 @@
     walk(document.body, current);
     syncButtons(current);
 
+    // Anything that mirrors translated copy (the marquee clones) listens for this.
+    try {
+      document.dispatchEvent(new CustomEvent("i18n:change", { detail: { lang: current } }));
+    } catch (e) { /* old browser */ }
+
     if (persist !== false) {
       try { localStorage.setItem(STORAGE, current); } catch (e) { /* private mode */ }
     }

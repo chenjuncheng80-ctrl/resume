@@ -378,13 +378,22 @@ body.nav-light .scroll-progress {
   z-index: 2;
 }
 .hero__marquee-track {
-  display: flex; align-items: center; gap: 2rem;
+  display: flex; align-items: center;
   white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 0.82rem; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--muted);
   animation: marquee 30s linear infinite;
   width: max-content;
+}
+/* Each copy of the word list is its own flex row and carries its trailing gap
+   as padding — that way every copy is exactly the same width, so the -50%
+   loop lands on the first word again instead of jumping by half a gap
+   (js/marquee.js clones this until the track is at least 2 viewports wide). */
+.hero__marquee-group {
+  display: flex; align-items: center; gap: 2rem;
+  padding-right: 2rem;
+  flex: 0 0 auto;
 }
 .hero__marquee-track i { font-style: normal; color: var(--line-dark); }
 @keyframes marquee {
