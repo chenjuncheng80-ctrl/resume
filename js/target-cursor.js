@@ -203,6 +203,10 @@
     // cursor rests as a closed square with a centre dot; closing in on a
     // control, the arms separate and the ring starts to spin.
     proximity: 90,
+    // Micro-parallax budget in px. 0 (default) welds the brackets to the
+    // target's corners: the mouse can roam inside a button and nothing moves.
+    // Raise it a couple of px if you want a hint of drift back.
+    parallaxAmount: 0,
     root: null            // the portal target; defaults to <body>
   };
 
@@ -295,7 +299,7 @@
 
     // --- misc state -----------------------------------------------------
     this.activeTarget = null;
-    this.cornerTargets = null;
+    this.cornerStartAbs = null;      // viewport-space take-off point of a lock
     this.strength = 0;
     this.strengthAnim = new Anim({ v: 0 }, function () {});   // tweened 0..1
     // --- proximity / rest ring ------------------------------------------
@@ -437,42 +441,87 @@
     this.wrapAnim.set({ rotation: this.rotation });
   };
 
-  /* --- corner parallax while locked ------------------------------------- */
+  /* Viewport coordinates of the four brackets for a given rect. Shared by the
+     lock ticker and the enter handler so both agree on where "the corners" are. */
+  TargetCursor.prototype._targetCornerPositions = function (rect, off) {
+    return [
+      { x: rect.left - BORDER_WIDTH - off.x, y: rect.top - BORDER_WIDTH - off.y },
+      { x: rect.right + BORDER_WIDTH - CORNER_SIZE - off.x, y: rect.top - BORDER_WIDTH - off.y },
+      { x: rect.right + BORDER_WIDTH - CORNER_SIZE - off.x, y: rect.bottom + BORDER_WIDTH - CORNER_SIZE - off.y },
+      { x: rect.left - BORDER_WIDTH - off.x, y: rect.bottom + BORDER_WIDTH - CORNER_SIZE - off.y }
+    ];
+  };
+
+  /* Turn a bracket's stored local offset back into a viewport position. */
+  TargetCursor.prototype._cornerAbs = function (i, off) {
+    var cx = this.wrapAnim.get("x");
+    var cy = this.wrapAnim.get("y");
+    var scale = this.wrapAnim.get("scale") || 1;
+    return {
+      x: off.x + cx + this.cornerAnims[i].get("x") * scale,
+      y: off.y + cy + this.cornerAnims[i].get("y") * scale
+    };
+  };
+
+  /* --- corner lock while a target is held ---------------------------------
+     The brackets used to be positioned relative to the wrapper — which is
+     itself still chasing the pointer with its own 0.1s follow tween — and then
+     eased into place with a second 0.2s tween. Every pixel the mouse travelled
+     inside a button therefore re-fed both tweens and the frame lagged behind,
+     dragging the corners around well past the button's own corners.
+
+     This ticker works in absolute viewport coordinates instead:
+       - the four target corners are re-measured from the live rect,
+       - the blend from take-off to target is driven purely by `strength`,
+       - the resulting absolute point is converted back to a local offset using
+         the wrapper position rendered *this* frame.
+     Net effect: once locked, moving the mouse inside the button moves nothing
+     but the centre dot. The brackets stay welded to the corners, even while
+     the wrapper is still easing, while the page scrolls, or while a card is
+     tilting. */
   TargetCursor.prototype._cornerTicker = function () {
     var self = this;
     return function () {
-      if (!self.cornerTargets || !self.activeTarget) return;
-      // Read the tweened strength object, not a mirrored field: the original
-      // tweens activeStrengthRef.current and the ticker reads that object.
+      var target = self.activeTarget;
+      if (!target || !self.cornerStartAbs) return;
       var s = self.strengthAnim.get("v");
-      self.strength = s;          // mirror for inspection only
+      self.strength = s;              // mirror, for inspection only
       if (s === 0) return;
 
-      // Re-measure the target every frame instead of trusting the rect taken
-      // at enter. This site tilts .cards in 3D on mousemove (see main.js), so
-      // a rect captured once would leave the brackets trailing behind the
-      // card as it rotates. One getBoundingClientRect per frame is cheap.
-      var rect = self.activeTarget.getBoundingClientRect();
+      // Re-measured every frame rather than trusting the rect taken at enter:
+      // the page tilts .cards in 3D on mousemove (see main.js), so a single
+      // cached rect would leave the brackets trailing behind the card.
+      var rect = target.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;      // filtered-out cards: 0x0
       var off = getContainingBlockOffset(self.containingBlock);
-      self.cornerTargets = [
-        { x: rect.left - BORDER_WIDTH - off.x, y: rect.top - BORDER_WIDTH - off.y },
-        { x: rect.right + BORDER_WIDTH - CORNER_SIZE - off.x, y: rect.top - BORDER_WIDTH - off.y },
-        { x: rect.right + BORDER_WIDTH - CORNER_SIZE - off.x, y: rect.bottom + BORDER_WIDTH - CORNER_SIZE - off.y },
-        { x: rect.left - BORDER_WIDTH - off.x, y: rect.bottom + BORDER_WIDTH - CORNER_SIZE - off.y }
-      ];
+      var abs = self._targetCornerPositions(rect, off);
+
+      // Optional micro-drift, shared by all four corners so the box keeps its
+      // shape. Off (parallaxAmount 0) by default — see DEFAULTS.
+      var dx = 0, dy = 0;
+      if (self.o.parallaxOn && self.o.parallaxAmount > 0) {
+        var tcx = (rect.left + rect.right) / 2;
+        var tcy = (rect.top + rect.bottom) / 2;
+        var nx = (self.pointer.x - tcx) / Math.max(1, rect.width / 2);
+        var ny = (self.pointer.y - tcy) / Math.max(1, rect.height / 2);
+        var amt = self.o.parallaxAmount;
+        dx = -clamp01(Math.abs(nx)) * (nx < 0 ? -1 : 1) * amt;
+        dy = -clamp01(Math.abs(ny)) * (ny < 0 ? -1 : 1) * amt;
+      }
 
       var cx = self.wrapAnim.get("x");
       var cy = self.wrapAnim.get("y");
+      var scale = self.wrapAnim.get("scale") || 1;
+
       for (var i = 0; i < 4; i++) {
-        var anim = self.cornerAnims[i];
-        var tx = self.cornerTargets[i].x - cx;
-        var ty = self.cornerTargets[i].y - cy;
-        var curX = anim.get("x");
-        var curY = anim.get("y");
-        var finalX = curX + (tx - curX) * s;
-        var finalY = curY + (ty - curY) * s;
-        var dur = s >= 0.99 ? (self.o.parallaxOn ? 0.2 : 0) : 0.05;
-        anim.to({ x: finalX, y: finalY }, dur, dur === 0 ? "none" : "power1.out");
+        var ax = self.cornerStartAbs[i].x + (abs[i].x - self.cornerStartAbs[i].x) * s + dx * s;
+        var ay = self.cornerStartAbs[i].y + (abs[i].y - self.cornerStartAbs[i].y) * s + dy * s;
+        // Written with .set(), not .to(): there is nothing to ease towards. The
+        // tween already happened above, in absolute space, via `s`.
+        self.cornerAnims[i].set({
+          x: (ax - off.x - cx) / scale,
+          y: (ay - off.y - cy) / scale
+        });
       }
     };
   };
@@ -502,37 +551,26 @@
       this.dotColor.to({ c: parseColor(this.o.cursorColorOnTarget) }, 0.15, "power2.out");
     }
 
-    var rect = target.getBoundingClientRect();
-    var off = getContainingBlockOffset(this.containingBlock);
-    var cx = this.wrapAnim.get("x");
-    var cy = this.wrapAnim.get("y");
-
-    this.cornerTargets = [
-      { x: rect.left - BORDER_WIDTH - off.x, y: rect.top - BORDER_WIDTH - off.y },
-      { x: rect.right + BORDER_WIDTH - CORNER_SIZE - off.x, y: rect.top - BORDER_WIDTH - off.y },
-      { x: rect.right + BORDER_WIDTH - CORNER_SIZE - off.x, y: rect.bottom + BORDER_WIDTH - CORNER_SIZE - off.y },
-      { x: rect.left - BORDER_WIDTH - off.x, y: rect.bottom + BORDER_WIDTH - CORNER_SIZE - off.y }
-    ];
-
     this.activeTarget = target;
+
+    // Take-off point, in viewport coordinates: wherever the reticle happens to
+    // be resting right now. The lock is a straight blend from here to the
+    // target's corners, so it cannot be perturbed by later mouse movement.
+    var offCb = getContainingBlockOffset(this.containingBlock);
+    this.cornerStartAbs = [];
+    for (var n4 = 0; n4 < 4; n4++) this.cornerStartAbs.push(this._cornerAbs(n4, offCb));
+
+    this.strengthAnim.set({ v: 0 });
+    this.strengthAnim.to({ v: 1 }, this.o.hoverDuration, "power2.out");
 
     var ticker = this._cornerTicker();
     this.tickerFn = ticker;
     addTicker(ticker);
 
-    this.strengthAnim.to({ v: 1 }, this.o.hoverDuration, "power2.out");
-
-    for (var j = 0; j < 4; j++) {
-      this.cornerAnims[j].to({
-        x: this.cornerTargets[j].x - cx,
-        y: this.cornerTargets[j].y - cy
-      }, 0.2, "power2.out");
-    }
-
     var leaveHandler = function () {
       removeTicker(self.tickerFn);
       self.tickerFn = null;
-      self.cornerTargets = null;
+      self.cornerStartAbs = null;
       self.strength = 0;
       self.strengthAnim.set({ v: 0 });
       var left = self.activeTarget;
@@ -667,6 +705,7 @@
       hideDefaultCursor: true,
       hoverDuration: 0.2,
       parallaxOn: true,
+      parallaxAmount: 0,      // brackets weld to the corners, nothing drifts
       proximity: 90,              // far: closed square + dot; near a control: the open spinning ring
       cursorColor: "#ffffff"      // difference blend: dark on paper, white on the dark sections
     });

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>target cursor probe</title>
+<link rel="stylesheet" href="../css/styles.css">
+<style>
+  .probe-btn {
+    position: absolute; left: 300px; top: 260px; width: 240px; height: 56px;
+    display: inline-flex; align-items: center; border-radius: 18px;
+  }
+</style>
+</head>
+<body>
+  <a class="btn probe-btn" id="btn" href="#">Probe target</a>
+  <script src="../js/target-cursor.js"></script>
+  <script>
+  window.__measure = function () {
+    var names = ["corner-tl", "corner-tr", "corner-br", "corner-bl"];
+    var corners = names.map(function (n) {
+      var r = document.querySelector("." + n).getBoundingClientRect();
+      return [r.left, r.top, r.right, r.bottom];
+    });
+    var b = document.getElementById("btn").getBoundingClientRect();
+    var w = document.querySelector(".target-cursor-wrapper").getBoundingClientRect();
+    return { corners: corners, btn: [b.left, b.top, b.right, b.bottom], wrap: [w.left, w.top] };
+  };
+  </script>
+</body>
+</html>
