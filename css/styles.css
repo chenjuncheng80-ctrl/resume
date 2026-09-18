@@ -462,6 +462,119 @@ body.nav-light .scroll-progress {
 }
 .stat__label { font-size: 0.85rem; color: var(--muted); }
 
+/* ---------- Pinned scene: About, then the name card ----------
+   The section is taller than the screen; the stage inside it sticks to the
+   top and the wheel drives two layers through it. js/about-pin.js writes
+   three numbers on the stage:
+     --fit        1 or less, shrinks the text block to fit a short window
+     --about-out  0 -> 1, the About text leaving
+     --card-in    0 -> 1, the card arriving
+   With no JS (or reduced motion) none of that applies: the section degrades
+   to an ordinary About, card hidden. */
+.section--pin { padding-block: 0; }
+.pin { position: relative; }
+.pin__stage { position: relative; }
+.pin__layer--card { display: none; }
+
+html.pin-ready .pin { height: var(--pin-runway, 240vh); }
+html.pin-ready .pin__stage {
+  position: sticky; top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: grid; place-items: center;
+  --fit: 1;
+  --about-out: 0;
+  --card-in: 0;
+}
+html.pin-ready .pin__layer {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  will-change: transform, opacity;
+}
+html.pin-ready .pin__layer--card { display: grid; }
+
+.pin__fit {
+  width: 100%;
+  padding: clamp(1.5rem, 4vw, 3rem) var(--pad);
+  transform: scale(var(--fit, 1));
+  transform-origin: center center;
+}
+html.pin-ready .pin__layer--about {
+  opacity: calc(1 - var(--about-out));
+  transform: translateY(calc(var(--about-out) * -7vh));
+}
+html.pin-ready .pin__layer--card {
+  opacity: var(--card-in);
+  transform: perspective(1200px)
+             rotateX(calc((1 - var(--card-in)) * -52deg))
+             translateY(calc((1 - var(--card-in)) * 40vh))
+             scale(calc(0.88 + 0.12 * var(--card-in)));
+  pointer-events: none;
+}
+html.pin-ready .pin__layer--card.is-live { pointer-events: auto; }
+
+/* ---------- Name card ---------- */
+.namecard {
+  position: relative;
+  width: min(30rem, 84vw);
+  padding: clamp(1.8rem, 4vw, 2.8rem);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;                /* same family as the buttons */
+  box-shadow: 0 34px 70px -34px rgba(20, 20, 20, 0.4),
+              0 1px 0 rgba(20, 20, 20, 0.04);
+  overflow: hidden;
+}
+.namecard__sheen {
+  position: absolute; inset: -30% -60%;
+  background: linear-gradient(104deg, transparent 40%,
+              rgba(255, 255, 255, 0.9) 50%, transparent 60%);
+  transform: translateX(calc((1 - var(--card-in, 1)) * 60%));
+  opacity: calc(1 - var(--card-in, 1));
+  pointer-events: none;
+}
+.namecard__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.74rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted);
+}
+.namecard__name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6vw, 3.4rem);
+  letter-spacing: -0.02em; line-height: 1;
+  margin: 0.7rem 0 0.5rem;
+}
+.namecard__role { font-size: 1rem; }
+.namecard__org { font-size: 0.9rem; color: var(--muted); margin-top: 0.15rem; }
+.namecard__lines {
+  margin: 1.7rem 0 0;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+  display: grid; gap: 0.6rem;
+}
+.namecard__row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem; font-size: 0.9rem;
+}
+.namecard__row dt {
+  font-family: var(--font-mono);
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted);
+}
+.namecard__row dd { margin: 0; text-align: right; }
+.namecard__row a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
+.namecard__note {
+  margin-top: 1.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  html.pin-ready .pin { --pin-runway: 200vh; }
+}
+
 /* ---------- Timeline ---------- */
 .timeline {
   max-width: var(--maxw); margin: 0 auto;

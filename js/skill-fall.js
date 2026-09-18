@@ -40,8 +40,13 @@
   var DEFAULTS = {
     source: "#heroAscii",     // canvas whose data-text supplies the vocabulary
     landing: "#about",        // where a token comes to rest
-    landOffset: 30,           // px above About's BOTTOM edge — a word falls the
-                              // whole section instead of stopping at its title
+    landOffset: 30,           // px above the landing point — a word falls the
+                              // whole way down instead of stopping at the title
+    landRatio: 0.35,          // where in the landing section it stops, 0..1.
+                              // About is now a 240vh pinned scene, so its real
+                              // bottom is a 2500px trip — nobody would ever see
+                              // the word arrive. 0.35 is the height of the name
+                              // card, where the section is actually being read.
     spawnLead: 60,            // a word joins the fall this far above the top of
                               // the window once the field itself has scrolled
                               // out of the way, so the trip stays watchable
@@ -256,11 +261,15 @@
   };
 
   /* ---------- landing line ----------
-     About's bottom edge, in document coordinates: a word crosses the whole
-     section before it lands. */
+     In document coordinates, `landRatio` of the way down the landing section
+     and never below its bottom edge — a word crosses the section before it
+     lands. */
   SkillFall.prototype._landY = function () {
     var r = this.landing.getBoundingClientRect();
-    return r.bottom + this._scrollY() - this.o.landOffset;
+    var sy = this._scrollY();
+    var top = r.top + sy;
+    var bottom = r.bottom + sy;
+    return Math.min(top + (bottom - top) * this.o.landRatio, bottom - this.o.landOffset);
   };
 
   /* ---------- physics + paint ---------- */

@@ -76,13 +76,16 @@ const landY = JSON.parse(await evalx(`JSON.stringify((function(){
   var r = document.querySelector('#about').getBoundingClientRect();
   var sy = window.scrollY || window.pageYOffset || 0;
   var top = r.top + sy, bottom = r.bottom + sy;
-  return { aboutTopDoc: Math.round(top), aboutBottomDoc: Math.round(bottom),
+  var ratio = window.__skillFall.o.landRatio;
+  return { aboutTopDoc: Math.round(top), aboutBottomDoc: Math.round(bottom), ratio: ratio,
            landY: Math.round(window.__skillFall._landY()),
-           expected: Math.round(bottom - 30), innerH: window.innerHeight };
+           expected: Math.round(Math.min(top + (bottom - top) * ratio, bottom - 30)),
+           innerH: window.innerHeight };
 })())`));
 console.log('landing line (document coords)', JSON.stringify(landY));
-const landsNearAboutEnd =
-  landY.landY > landY.aboutTopDoc + (landY.aboutBottomDoc - landY.aboutTopDoc) * 0.8;
+const landInsideSection =
+  landY.landY > landY.aboutTopDoc + (landY.aboutBottomDoc - landY.aboutTopDoc) * 0.2 &&
+  landY.landY < landY.aboutBottomDoc - 30;
 
 // A heavy word dropped from the hero has to reach that line — which sits
 // below the fold — and still be lying there when the reader scrolls down.
@@ -114,8 +117,9 @@ console.log('off-screen landing held', JSON.stringify(held));
 const heldPP = held.find((t) => t.w === 'Premiere Pro');
 const holdWorked = !!heldPP && heldPP.held > 0.5;
 
-// Scroll it into view: the word is on screen, at the end of About.
-await evalx(`window.scrollTo(0, document.querySelector('#about').offsetTop + document.querySelector('#about').offsetHeight - window.innerHeight + 40); 'ok'`);
+// Scroll it into view — About is a pinned scene now, so "into view" means the
+// landing line itself, not the bottom of the section.
+await evalx(`window.scrollTo(0, window.__skillFall._landY() - window.innerHeight * 0.62); 'ok'`);
 await sleep(500);
 const onScreen = JSON.parse(await evalx(`JSON.stringify((function(){
   var sy = window.scrollY || window.pageYOffset || 0;
@@ -195,7 +199,7 @@ const pass =
   boot.fieldStart.indexOf('Adobe') === 0 &&
   t1.length > 0 && t1.every((t) => t.y > t0[0].y) &&
   Math.abs(landY.landY - landY.expected) < 1 &&
-  landsNearAboutEnd && landedOnLine && holdWorked &&
+  landInsideSection && landedOnLine && holdWorked &&
   visibleAfterScroll && spawnsWhileReading &&
   spawnY.ys.length === 12 && spawnY.ys.every((y) => y < spawnY.h * 0.55) &&
   errs.length === 0;
