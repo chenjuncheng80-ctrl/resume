@@ -266,7 +266,14 @@ body.nav-light .scroll-progress {
    field and dropped into a matter-js world, so they stack on each other and
    can be dragged. The layer is fixed to the viewport and stays transparent to
    the pointer — only the words themselves take clicks, so nothing beneath the
-   fall layer is ever blocked by it. */
+   fall layer is ever blocked by it.
+
+   Layer order: z-index 3 is UNDER the copy. Every block of real text
+   (hero headline, section heads, the two pinned pages) is raised to 5 by the
+   rules further down, so a word never sits on top of a line of type — it only
+   shows through the empty parts of the layout. The layer itself stays above
+   the page background rather than below it, precisely so a word resting in
+   open space can still be picked up. */
 .skill-fall {
   position: fixed;
   inset: 0;
@@ -317,7 +324,7 @@ body.nav-light .scroll-progress {
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
   position: relative;
-  z-index: 2;            /* above the ripple (0) and the readability veil (1) */
+  z-index: 5;            /* above the ripple (0), the veil (1) and the fall (3) */
 }
 
 /* Hero typography is redone: the title is a real black-weight grotesque
@@ -403,7 +410,7 @@ body.nav-light .scroll-progress {
   overflow: hidden;
   width: 100%;
   position: relative;
-  z-index: 2;
+  z-index: 5;            /* same reasoning as .hero__stage: copy over the fall */
 }
 .hero__marquee-track {
   display: flex; align-items: center;
@@ -438,6 +445,10 @@ body.nav-light .scroll-progress {
 .section__head {
   max-width: var(--maxw); margin: 0 auto 3rem;
   display: flex; align-items: baseline; gap: 1.2rem;
+  /* raised over js/skill-fall.js (3): a word falling past must never land
+     on top of a heading */
+  position: relative;
+  z-index: 5;
 }
 .section__index {
   font-family: var(--font-mono);
@@ -521,7 +532,18 @@ html.pin-ready .pin__layer {
   position: absolute; inset: 0;
   display: grid; place-items: center;
   will-change: transform, opacity;
+  /* Over the falling words (3), so the card and the About copy are never
+     written over — and transparent to the pointer because the layer is a
+     full-screen sheet: with it left on, it would swallow every press meant
+     for a word lying underneath it. Only the content says `auto`. */
+  z-index: 5;
+  pointer-events: none;
 }
+/* Only the page that is actually on screen takes the pointer. The layers are
+   full-screen sheets sitting over the falling words, so a faded-out one would
+   otherwise keep swallowing presses meant for a word lying underneath it. */
+html.pin-ready .pin__layer--about.is-live .pin__fit,
+html.pin-ready .pin__layer--card.is-live .namecard { pointer-events: auto; }
 html.pin-ready .pin__layer--card { display: grid; }
 
 .pin__fit {
@@ -529,6 +551,8 @@ html.pin-ready .pin__layer--card { display: grid; }
   padding: clamp(1.5rem, 4vw, 3rem) var(--pad);
   transform: scale(var(--fit, 1));
   transform-origin: center center;
+  position: relative;
+  z-index: 5;            /* stays over the falling words without the pin too */
 }
 html.pin-ready .pin__layer--about {
   opacity: calc(1 - var(--about-out));
@@ -542,7 +566,10 @@ html.pin-ready .pin__layer--card {
              scale(calc(0.88 + 0.12 * var(--card-in)));
   pointer-events: none;
 }
-html.pin-ready .pin__layer--card.is-live { pointer-events: auto; }
+/* The card layer itself stays transparent to the pointer even once it is
+   live — the .namecard rule above is what makes the card clickable. Handing
+   pointer-events back to the whole layer would put a full-screen sheet over
+   the falling words and they could no longer be picked up. */
 
 /* ---------- Name card ---------- */
 .namecard {

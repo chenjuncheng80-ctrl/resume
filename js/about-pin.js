@@ -28,7 +28,8 @@
     pin: "#aboutPin",
     stage: ".pin__stage",
     fit: ".pin__fit",
-    cardLayer: ".pin__layer--card",
+    aboutLayer: ".pin__layer--about",   // page one: live while its text is up
+    cardLayer: ".pin__layer--card",     // page two: live once it has arrived
     nav: ".nav",
     // Progress windows, as a fraction of the pinned runway. The wheel has to
     // travel `holdUntil` before anything moves at all — that dead zone is what
@@ -56,6 +57,7 @@
     if (!this.pin) return;
     this.stage = this.pin.querySelector(o.stage);
     this.fitEl = this.pin.querySelector(o.fit);
+    this.aboutLayer = this.pin.querySelector(o.aboutLayer);
     this.cardLayer = this.pin.querySelector(o.cardLayer);
     if (!this.stage || !this.fitEl) return;
 
@@ -97,6 +99,18 @@
     var s = this.stage.style;
     s.setProperty("--about-out", out.toFixed(4));
     s.setProperty("--card-in", inn.toFixed(4));
+
+    /* Only the page on screen takes the pointer. Both layers are
+       full-screen sheets stacked over the falling words, so the one that has
+       faded out has to stop swallowing presses — a word lying underneath it
+       must still be grabbable. */
+    if (this.aboutLayer) {
+      var textLive = out < 0.995;
+      if (textLive !== this.aboutLive) {
+        this.aboutLive = textLive;
+        this.aboutLayer.classList.toggle("is-live", textLive);
+      }
+    }
 
     // only let the card take clicks once it has actually arrived
     if (this.cardLayer) {

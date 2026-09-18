@@ -83,9 +83,19 @@ const read = () => evalx(`JSON.stringify((function(){
            innerH: window.innerHeight };
 })())`);
 
+/* html has scroll-behavior: smooth, so a scrollTo is an animation, not a
+   jump. Wait for it to actually land — reading 320ms after the call reads a
+   frame from halfway through the easing, which on the long trip back to the
+   top is still a fifth of the runway along. */
 async function goto(p) {
-  await evalx(`window.scrollTo(0, ${geom.pinTop.toFixed(1)} + ${geom.runway.toFixed(1)} * ${p}); 'ok'`);
-  await sleep(320);
+  const want = geom.pinTop + geom.runway * p;
+  await evalx(`window.scrollTo(0, ${want.toFixed(1)}); 'ok'`);
+  for (let i = 0; i < 25; i++) {
+    const y = JSON.parse(await evalx('Math.round(window.scrollY)'));
+    if (Math.abs(y - want) < 12) break;
+    await sleep(120);
+  }
+  await sleep(220);
   return JSON.parse(await read());
 }
 

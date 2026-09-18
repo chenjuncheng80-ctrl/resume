@@ -127,6 +127,19 @@ check('vocabulary comes from the hero field',
 check('the layer does not swallow clicks',
   (await ev(`getComputedStyle(document.querySelector('.skill-fall')).pointerEvents`)) === 'none');
 
+/* --- geometry ----------------------------------------------------------
+   There is one floor and it belongs to the card page: `pageTwo` is a
+   scroll position well inside the card's window, `heroFloor` is the floor
+   line while the hero is up — which is the same line, read from far above. */
+const vh = await ev('window.innerHeight');
+const clearance = await ev('window.__skillFall.o.viewClearance');
+const aboutTop = await ev(`document.querySelector('#about').offsetTop`);
+const runway = await ev(`document.querySelector('#about').offsetHeight - window.innerHeight`);
+/* 0.85 of the runway: past secondPageAt, and far enough in that the card has
+   finished arriving (card-in >= 0.995) and is taking clicks again. */
+const pageTwo = aboutTop + Math.round(runway * 0.85);
+const floorAt = () => ev(`Math.round(window.__skillFall._landY())`);
+
 /* --- 2. a body is really being simulated ------------------------------- */
 await clear();
 const landY = await ev(`Math.round(window.__skillFall._landY())`);
@@ -157,16 +170,15 @@ check('nothing falls so fast it cannot be read', vHeavy < 700, Math.round(vHeavy
 
 /* --- 4. words stack instead of overlapping ----------------------------- */
 await clear();
-const parked = await scrollTo(landY - 400);
+const parked = await scrollTo(pageTwo);
 await sleep(400);
-check('test scaffolding: the page really scrolled', Math.abs(parked - (landY - 400)) < 80, 'scrollY=' + parked);
-/* The floor rides the viewport once About is on screen, so the line must be
-   read AFTER parking — the hero-regime value read above is stale here. */
-const floorLine = await ev(`Math.round(window.__skillFall._landY())`);
-check('the floor rides the viewport in the About scene',
-  Math.abs(floorLine - (parked + (await ev('window.innerHeight')) - 150)) < 40 ||
-  floorLine > landY,
-  'floor=' + floorLine + ' hero-line=' + landY);
+check('test scaffolding: the page really scrolled', Math.abs(parked - pageTwo) < 80, 'scrollY=' + parked);
+/* The floor rides the viewport on the card page, so the line must be read
+   AFTER parking — the value read back in the hero is a different regime. */
+const floorLine = await floorAt();
+check('the floor is the foot of the card page',
+  Math.abs(floorLine - (parked + vh - clearance)) < 30,
+  'floor=' + floorLine + ' expected=' + (parked + vh - clearance));
 await drop('Adobe', 700, floorLine - 420);
 const landedFirst = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 8000);
 const lower = await ev(`(() => { const t = window.__skillFall.tokens[0]; return t ? { y: Math.round(t.y), h: t.h, landed: t.landed } : null; })()`);
@@ -187,9 +199,9 @@ check('and does not sink into it', stack && stack.gap > stack.need * 0.6,
 
 /* --- 5. five seconds on the floor, then gone --------------------------- */
 await clear();
-const parked2 = await scrollTo(landY - 400);
-check('test scaffolding: still scrolled for the fade test', Math.abs(parked2 - (landY - 400)) < 80, 'scrollY=' + parked2);
-await drop('Unity', 600, landY - 300);
+const parked2 = await scrollTo(pageTwo);
+check('test scaffolding: still scrolled for the fade test', Math.abs(parked2 - pageTwo) < 80, 'scrollY=' + parked2);
+await drop('Unity', 600, parked2 + 120);
 const landedThird = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 9000);
 await sleep(3000);
 const mid = await ev(`(() => { const t = window.__skillFall.tokens[0]; return t ? { op: +t.el.style.opacity, base: +t.base.toFixed(3), since: Math.round(performance.now() - t.landedAt) } : null; })()`);
@@ -204,7 +216,7 @@ check('and is gone by five seconds', gone.n === 0 && gone.els === 0, JSON.string
 
 /* --- 6. pick one up ---------------------------------------------------- */
 await clear();
-await drop('Figma', 500, landY - 300);
+await drop('Figma', 500, parked2 + 120);
 await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 9000);
 const before = await ev(`(() => { const t = window.__skillFall.tokens[0]; const sy = window.scrollY;
   return { sx: Math.round(t.x), sy: Math.round(t.y - sy) }; })()`);
@@ -267,48 +279,82 @@ const afterPluck = await ev('window.__skillFall.tokens.reduce(function (m, t) { 
 check('clicking the hero still plucks a word', afterPluck > beforePluck,
   'newest token ' + Math.round(beforePluck) + ' -> ' + Math.round(afterPluck));
 
-/* --- 7b. the fall continues on About's second page ---------------------- */
-// On the name-card page a fixed document floor would sit above the viewport:
-// words would spawn under it and fall straight out of the world. The floor
-// must ride the viewport there, and a word resting on page 1 must re-fall
-// when the ground is pulled out from under it instead of freezing mid-air.
-const aboutTopDoc = await ev(`document.querySelector('#about').offsetTop`);
-await clear();
-await scrollTo(aboutTopDoc + 120);
-await sleep(400);
-const floorP1 = await ev(`Math.round(window.__skillFall._landY())`);
-check('page 1: the floor rides the viewport once the scene is pinned',
-  Math.abs(floorP1 - (aboutTopDoc + 120 + (await ev('window.innerHeight')) - 150)) < 30,
-  'floor=' + floorP1);
-await drop('Lightroom', 700, floorP1 - 420);
-const restedP1 = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 9000);
+/* --- 7b. nothing settles before the card page --------------------------- */
+// The floor only exists at the foot of page two. Page one and the hand-over
+// between the two pages must be flown straight through: while they are on
+// screen the floor has to stay below the fold, otherwise words would pile up
+// on the About text instead of falling past it.
+const floorP1 = (async () => {
+  await clear();
+  const sy1 = await scrollTo(aboutTop + 120);       // page one
+  await sleep(400);
+  const line = await floorAt();
+  check('page 1: the floor waits below the fold — nothing parks here',
+    line - (sy1 + vh) > 60, 'floor=' + line + ' fold=' + (sy1 + vh));
+  return { sy1, line };
+})();
+const p1 = await floorP1;
+
+await drop('Lightroom', 700, p1.sy1 + 160);
+const restedP1 = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 14000);
 const posP1 = await ev(`(() => { const t = window.__skillFall.tokens[0];
   return t ? { y: Math.round(t.y), sy: Math.round(window.scrollY) } : null; })()`);
-check('page 1: a word rests on the riding floor', restedP1 && posP1 &&
-  Math.abs(posP1.y - floorP1) < 60, JSON.stringify(posP1) + ' floor=' + floorP1);
+check('page 1: a word falls straight through and lands off screen',
+  restedP1 && posP1 && Math.abs(posP1.y - p1.line) < 60 && (posP1.y - p1.sy1) > vh,
+  JSON.stringify(posP1) + ' floor=' + p1.line);
 
-await scrollTo(aboutTopDoc + 1300);
+/* --- 7c. ...and the floor is the foot of page two ---------------------- */
+const sy2 = await scrollTo(pageTwo);
 await sleep(600);
 const cardP2 = await ev(`(() => { var r = document.querySelector('.namecard').getBoundingClientRect();
   return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; })()`);
 check('page 2: the name card is centred in view',
-  cardP2.top > 0 && cardP2.bottom < (await ev('window.innerHeight')), JSON.stringify(cardP2));
+  cardP2.top > 0 && cardP2.bottom < vh, JSON.stringify(cardP2));
 check('page 2: the spawn source is still live',
   (await ev('window.__skillFall.aboutVisible')) === true);
+const floorP2 = await floorAt();
+check('page 2: the floor is the bottom of the page',
+  Math.abs(floorP2 - (sy2 + vh - clearance)) < 30 && floorP2 - sy2 < vh,
+  'floor=' + floorP2 + ' view=' + (floorP2 - sy2) + '/' + vh);
 
 const chased = await until(`(() => { const f = window.__skillFall; const t = f.tokens[0];
-  return t && t.landed && (t.y - window.scrollY) > ${cardP2.bottom}; })()`, 12000);
+  return t && t.landed && (t.y - window.scrollY) > ${cardP2.bottom}; })()`, 15000);
 const posP2 = await ev(`(() => { const t = window.__skillFall.tokens[0];
   return t ? { y: Math.round(t.y), yView: Math.round(t.y - window.scrollY),
     landed: t.landed, op: +(+t.el.style.opacity).toFixed(3),
     floor: Math.round(window.__skillFall._landY()) } : null; })()`);
-check('page 2: the word left behind re-falls to the new floor',
-  chased && posP2 && posP2.landed &&
-  Math.abs(posP2.y - posP2.floor) < 60 &&
-  posP2.yView > cardP2.bottom && posP2.yView < (await ev('window.innerHeight')),
-  JSON.stringify(posP2));
+check('page 2: the word left behind on page 1 re-falls onto this floor',
+  chased && posP2 && posP2.landed && Math.abs(posP2.y - posP2.floor) < 60 &&
+  posP2.yView > cardP2.bottom && posP2.yView < vh, JSON.stringify(posP2));
 check('page 2: it did not freeze mid-air, it is still fading',
   posP2 && posP2.op > 0.02 && posP2.op < 0.5, 'op=' + (posP2 && posP2.op));
+
+await clear();
+await drop('Unity', 700, sy2 + 80);
+const landedP2 = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 15000);
+const posP2b = await ev(`(() => { const t = window.__skillFall.tokens[0];
+  return t ? { bottom: Math.round(t.y + t.h / 2), yView: Math.round(t.y - window.scrollY),
+    landed: t.landed, floor: Math.round(window.__skillFall._landY()) } : null; })()`);
+check('page 2: a word shed here lands at the very bottom, under the card',
+  landedP2 && posP2b && Math.abs(posP2b.bottom - posP2b.floor) < 12 &&
+  posP2b.yView > cardP2.bottom, JSON.stringify(posP2b));
+
+/* --- 7d. the fall runs UNDER the copy ---------------------------------- */
+const zOrder = await ev(`(() => { var g = function (s) { return +getComputedStyle(document.querySelector(s)).zIndex; };
+  return { fall: g('.skill-fall'), cardLayer: g('.pin__layer--card'),
+           aboutLayer: g('.pin__layer--about'), hero: g('.hero__stage'),
+           cardPE: getComputedStyle(document.querySelector('.pin__layer--card')).pointerEvents }; })()`);
+check('the pinned pages sit above the falling layer',
+  zOrder.cardLayer > zOrder.fall && zOrder.aboutLayer > zOrder.fall, JSON.stringify(zOrder));
+check('the hero headline sits above it too', zOrder.hero > zOrder.fall, 'hero=' + zOrder.hero);
+check('a full-screen page is transparent to the pointer, so words stay grabbable',
+  zOrder.cardPE === 'none', zOrder.cardPE);
+const onCard = await ev(`(() => { var n = document.querySelector('.namecard__name');
+  var r = n.getBoundingClientRect();
+  var el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return el ? (el.className || el.tagName) : null; })()`);
+check('a press on the name hits the card, not a word behind it',
+  /namecard/.test(String(onCard)), String(onCard));
 
 /* --- 8. nothing leaked ------------------------------------------------- */
 await clear();

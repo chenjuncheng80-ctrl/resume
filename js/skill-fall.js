@@ -4,9 +4,12 @@
    The hero background is a field of monospace glyphs spelling
    out the owner's tools, disciplines and traits (see data-text
    on #heroAscii). This layer plucks individual words out of
-   that field and lets them fall down the page until they reach
-   the About section, where they pile up, can be picked up with
-   the mouse, and lie there for five seconds before fading out.
+   that field and lets them fall the whole length of the page —
+   past the hero, past the About text, through the hand-over
+   between the two pages of the pinned scene — until they reach
+   the foot of the name-card page, where they pile up, can be
+   picked up with the mouse, and lie there for five seconds
+   before fading out.
 
    The motion is a real rigid-body simulation (matter-js, see
    js/vendor/matter.min.js) rather than the hand-rolled gravity
@@ -34,9 +37,12 @@
    Geometry. Words live in DOCUMENT coordinates and are only
    shifted by scrollY at paint time, which is what lets one
    leave the hero, cross the fold and keep going down into
-   About. The floor follows the landing line, so a word always
-   comes to rest relative to the section, whatever the layout
-   has done in between.
+   About. There is exactly ONE floor, and it belongs to page
+   two of the pinned scene — the card page. Nothing settles on
+   page one or during the transition between them: while those
+   are on screen the floor waits below the fold, so the words
+   simply keep falling, and it only starts following the
+   viewport once the card has taken the stage. See _landY().
 
    A word that lands off screen holds its countdown until it
    has been looked at, so scrolling down to About finds words
@@ -57,17 +63,21 @@
     landing: "#about",        // the section whose floor catches the words
 
     /* --- landing line ------------------------------------------------
-       About is a 240vh pinned scene whose sticky stage fills the viewport
-       for the whole trip. While it is on screen the floor rides with the
-       viewport (viewClearance below), so a word lands on whichever page of
-       About the reader is looking at — the name card included — instead of
-       a document position that has already scrolled away. */
-    landRatio: 0.35,          // pre-About: how far down the section the floor
-                              // waits, below the fold until the reader arrives
+       There is exactly one floor, and it belongs to the card page. About is
+       a 240vh pinned scene: page one is the About text, page two is the name
+       card, and the wheel cross-fades between them. Words are not allowed to
+       settle on page one or during the hand-over — they fall through both and
+       come to rest at the bottom of page two, and only there. */
+    secondPageAt: 0.6,        // fraction of the pinned runway that has to be
+                              // travelled before the card owns the stage, i.e.
+                              // where page two starts. Past it the floor rides
+                              // the viewport; before it the floor waits at the
+                              // document line that IS the bottom of the screen
+                              // the moment the card arrives — below the fold
+                              // while page one is up, so nothing parks there.
     landOffset: 30,           // px of clearance above the very bottom edge
-    viewClearance: 150,       // px above the bottom of the viewport while the
-                              // About scene is active: words settle beneath the
-                              // name card rather than at the very screen edge
+    viewClearance: 56,        // px above the bottom of the viewport: the floor
+                              // sits at the very foot of page two
 
     separator: "\u00b7",      // the data-text splits into words on this
     everyMin: 1400,           // ms between spawns
@@ -110,7 +120,10 @@
     detachAt: 0.5,            // fraction of `fade` after which it leaves the
                               // simulation: ghosts still visible should not
                               // be solid obstacles for the next arrivals
-    hold: 6,                  // s a landing off screen waits to be seen
+    hold: 9,                  // s a landing off screen waits to be seen. Long:
+                              // the floor now lives at the foot of the card
+                              // page, so a word can lie below the fold for
+                              // most of a scroll before it is looked at.
 
     drag: true,
     dragStiffness: 0.9,
@@ -319,31 +332,34 @@
     return global.scrollY || global.pageYOffset || 0;
   };
 
-  /* The landing line, in document coordinates. Three regimes:
+  /* The landing line, in document coordinates. One floor, three ways of
+     reading the same thing:
 
-       - pinned (the reader is inside the About scene, sticky stage filling
-         the viewport): the floor rides the viewport, viewClearance above its
-         bottom edge, so words land on whichever page of About is being read
-         — the name card included. A fixed document floor would have scrolled
-         off the top by the second page, and words would fall straight out of
-         the world unseen.
-       - past the scene (its bottom above the fold): rest at the end of the
-         section, so the last words settle where About finishes.
-       - not reached yet (hero still on screen): wait below the fold at the
-         natural landing line; a word landing there holds its fade until the
-         reader scrolls down to it. */
+       - page two (the card owns the stage): the floor rides the viewport,
+         viewClearance above its bottom edge, so a word always settles at the
+         foot of the card page while the reader is looking at it.
+       - before page two — the hero, page one, and the hand-over between the
+         two: the floor stays parked at the document line that will become the
+         bottom of the screen the instant page two arrives. It is below the
+         fold the whole way, so a word crossing page one simply keeps falling
+         instead of coming to rest on it.
+       - past the runway: the floor stays where page two ended, i.e. at the
+         foot of the section, instead of following the reader out of About.
+
+     Clamping the scroll position into the runway is what makes all three the
+     same number: the floor only ever moves while the card page is on screen,
+     and everywhere else it is the one line the card page will hand over. */
   SkillFall.prototype._landY = function () {
     var r = this.landing.getBoundingClientRect();
     var sy = this._scrollY();
     var top = r.top + sy;
     var bottom = r.bottom + sy;
-    var endLine = bottom - this.o.landOffset;
+    var runway = Math.max(0, (bottom - top) - this.cssH);
+    var from = top + runway * this.o.secondPageAt;
+    var to = top + runway;
 
-    if (r.top <= 0 && r.bottom >= this.cssH) {
-      return Math.min(sy + this.cssH - this.o.viewClearance, endLine);
-    }
-    if (r.bottom < this.cssH) return endLine;
-    return Math.min(top + (bottom - top) * this.o.landRatio, endLine);
+    return Math.min(clamp(sy, from, to) + this.cssH - this.o.viewClearance,
+                    bottom - this.o.landOffset);
   };
 
   /* Keep the floor under the section even if the layout reflows. Only moved
