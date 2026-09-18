@@ -4,8 +4,8 @@
    The hero background is a field of monospace glyphs spelling out
    the owner's tools, disciplines and traits (see data-text on
    #heroAscii). This layer plucks individual words out of that
-   field and lets them fall down the page until they hit the About
-   section, where they settle and fade out.
+   field and lets them fall down the page until they reach the
+   bottom of the About section, where they settle and fade out.
 
    Every token carries a WEIGHT. The weight is the whole point of
    the effect, so it drives four things at once:
@@ -17,10 +17,17 @@
      - impact       — a heavy word squashes on landing and throws
                       more dust than a light one
 
-   Geometry. The canvas is fixed to the viewport and draws in
-   viewport coordinates, while the landing line is re-measured
-   from #about every frame — so a token always falls to wherever
-   About actually is, whether the page is scrolled or not.
+   Geometry. The canvas is fixed to the viewport but every token
+   is tracked in DOCUMENT coordinates and only shifted by scrollY
+   at paint time. That is what lets a word leave the hero, cross
+   the fold and keep going down to the end of About: a word that
+   is merely clamped to the bottom of the window has not fallen
+   anywhere, it has just stopped.
+
+   A word that lands while it is off screen holds its fade until
+   it has been looked at (for a few seconds, at least), so
+   scrolling down to About finds words resting there rather than
+   an empty section.
 
    Cost. Nothing runs when there is nothing in the air: the rAF
    chain stops as soon as the last token and its dust are gone and
@@ -33,11 +40,11 @@
   var DEFAULTS = {
     source: "#heroAscii",     // canvas whose data-text supplies the vocabulary
     landing: "#about",        // where a token comes to rest
-    landOffset: 34,           // px below About's top edge
-    bottomMargin: 96,         // the landing line is pulled up to this far from
-                              // the bottom of the window when About is still
-                              // below the fold — a word that vanishes off the
-                              // screen has not "landed on About" for anyone
+    landOffset: 30,           // px above About's BOTTOM edge — a word falls the
+                              // whole section instead of stopping at its title
+    spawnLead: 60,            // a word joins the fall this far above the top of
+                              // the window once the field itself has scrolled
+                              // out of the way, so the trip stays watchable
     separator: "\u00b7",      // the data-text splits into words on this
     everyMin: 1000,           // ms between spawns
     everyMax: 2600,
@@ -50,6 +57,7 @@
     sway: 30,                 // px/s^2 of sideways drift at weight 1
     tumble: 80,               // deg/s at weight 1
     fade: 950,                // ms from landing to gone
+    hold: 6,                  // s a landing off screen waits to be seen
     opacity: 0.34,
     dust: true,
     maxDPR: 2
@@ -121,7 +129,8 @@
     this.raf = 0;
     this.spawnTimer = 0;
     this.lastFrame = 0;
-    this.heroVisible = true;
+    this.fieldVisible = true;
+    this.aboutVisible = false;
 
     this.resize();
     this._bind();
@@ -179,7 +188,8 @@
     var wait = rand(this.o.everyMin, this.o.everyMax);
     this.spawnTimer = global.setTimeout(function () {
       self.spawnTimer = 0;
-      if (!document.hidden && self.heroVisible && self.tokens.length < self.o.maxTokens) {
+      if (!document.hidden && (self.fieldVisible || self.aboutVisible) &&
+          self.tokens.length < self.o.maxTokens) {
         self.spawn();
       }
       self._queueSpawn();
@@ -187,15 +197,23 @@
   };
 
   /* Spawn one token from a random point inside the hero field.
-     x/y are optional viewport coordinates (used by the click pluck). */
+     x/y are optional DOCUMENT coordinates (used by the click pluck). */
   SkillFall.prototype.spawn = function (x, y) {
     var r = this.source.getBoundingClientRect();
+    var sy = this._scrollY();
     var word = this._nextWord();
     var weight = this._weightOf(word);
     var wn = clamp01((weight - W_MIN) / (W_MAX - W_MIN));
 
     var px = typeof x === "number" ? x : rand(r.left + 20, Math.max(r.left + 24, r.right - 20));
-    var py = typeof y === "number" ? y : rand(r.top + r.height * 0.12, r.top + r.height * 0.86);
+    // Only the upper half of the field sheds words — spawning near the bottom
+    // gave some tokens a 20px trip, so they appeared already landed. Once the
+    // field has scrolled away the word joins the fall just above the window
+    // instead, otherwise the drop would take four seconds to watch.
+    var fieldTop = r.top + sy;
+    var py = typeof y === "number" ? y
+      : Math.max(rand(fieldTop + r.height * 0.06, fieldTop + r.height * 0.48),
+                 sy - this.o.spawnLead);
 
     var size = this.o.fontSize * (0.86 + 0.16 * weight);
     this.tokens.push({
@@ -216,31 +234,42 @@
       landed: false,
       landedAt: 0,
       squash: 0,
+      held: 0,
       seed: Math.random() * 1000
     });
 
-    // pluck the field where the word came from: a small ripple in the surface
+    // pluck the field where the word came from: a small ripple in the surface.
+    // Skipped when the field is off screen — the ripple belongs to a surface
+    // nobody is looking at.
     var ripple = this.source.__asciiRipple;
-    if (ripple && ripple.drop) {
-      ripple.drop(px - r.left, py - r.top, 0.35, 34);
+    var fieldOnScreen = r.bottom > 0 && r.top < this.cssH;
+    if (ripple && ripple.drop && fieldOnScreen) {
+      ripple.drop(px - r.left, py - sy - r.top, 0.35, 34);
     }
     this._wake();
     return true;
   };
 
+  /* ---------- coordinates ---------- */
+  SkillFall.prototype._scrollY = function () {
+    return global.scrollY || global.pageYOffset || 0;
+  };
+
   /* ---------- landing line ----------
-     Normally About's own top edge. On a short window that edge sits below the
-     fold, so the line is pulled up into view instead of letting every word
-     disappear past the bottom of the screen unseen. */
+     About's bottom edge, in document coordinates: a word crosses the whole
+     section before it lands. */
   SkillFall.prototype._landY = function () {
     var r = this.landing.getBoundingClientRect();
-    return Math.min(r.top + this.o.landOffset, this.cssH - this.o.bottomMargin);
+    return r.bottom + this._scrollY() - this.o.landOffset;
   };
 
   /* ---------- physics + paint ---------- */
   SkillFall.prototype._update = function (dt) {
     var o = this.o;
     var landY = this._landY();
+    var sy = this._scrollY();
+    var viewTop = sy - 60;
+    var viewBottom = sy + this.cssH + 40;
     var now = nowMs();
     var i;
 
@@ -279,12 +308,21 @@
         t.x += t.vx * dt * 0.25;
         t.vx *= 0.94;
         t.squash += (0 - t.squash) * Math.min(1, dt * 7);
+
+        // A word that came to rest below the fold holds its fade for up to
+        // `hold` seconds, so scrolling down to About actually finds words
+        // lying there. After that it fades like any other.
+        if (t.held < o.hold) {
+          if (t.y < viewTop || t.y > viewBottom) { t.landedAt += dt * 1000; t.held += dt; }
+        }
+
         t.alpha = t.base * (1 - clamp01(since / o.fade));
         if (since >= o.fade) { this.tokens.splice(i, 1); continue; }
       }
 
-      // fell past the bottom of the viewport without reaching About
-      if (!t.landed && t.y > this.cssH + 240) { this.tokens.splice(i, 1); continue; }
+      // still falling long after the landing line — something moved the page
+      // under it; drop it rather than let it chase the section forever
+      if (!t.landed && t.y > landY + 400) { this.tokens.splice(i, 1); continue; }
     }
 
     for (i = this.dust.length - 1; i >= 0; i--) {
@@ -319,6 +357,7 @@
 
   SkillFall.prototype._render = function () {
     var ctx = this.ctx;
+    var sy = this._scrollY();
     ctx.clearRect(0, 0, this.cssW, this.cssH);
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
@@ -327,7 +366,7 @@
     for (i = 0; i < this.tokens.length; i++) {
       var t = this.tokens[i];
       ctx.save();
-      ctx.translate(t.x, t.y);
+      ctx.translate(t.x, t.y - sy);
       ctx.rotate(t.rot * Math.PI / 180);
       // squash on impact: flatten vertically, widen a little
       ctx.scale(1 + t.squash * 0.5, 1 - t.squash);
@@ -341,7 +380,7 @@
       var d = this.dust[i];
       var a = clamp01(d.life / d.max) * d.alpha;
       ctx.fillStyle = "rgba(20,20,20," + a.toFixed(3) + ")";
-      ctx.fillRect(d.x, d.y, d.size, d.size);
+      ctx.fillRect(d.x, d.y - sy, d.size, d.size);
     }
   };
 
@@ -382,15 +421,22 @@
     // clicking the hero plucks a word out of the field right there
     this._onDown = function (e) {
       if (self.tokens.length >= self.o.maxTokens + 3) return;
-      self.spawn(e.clientX, e.clientY);
+      self.spawn(e.clientX, e.clientY + self._scrollY());
     };
     this.source.parentElement.addEventListener("pointerdown", this._onDown, { passive: true });
 
+    // Words keep being shed while either end of the trip is on screen: the
+    // field where they come from, or About where they land. Watching the
+    // landing zone matters — reading About should not mean an empty sky.
     if ("IntersectionObserver" in global) {
       this._io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) { self.heroVisible = entry.isIntersecting; });
+        entries.forEach(function (entry) {
+          if (entry.target === self.landing) self.aboutVisible = entry.isIntersecting;
+          else self.fieldVisible = entry.isIntersecting;
+        });
       }, { threshold: 0 });
       this._io.observe(this.source);
+      this._io.observe(this.landing);
     }
 
     this._onVisibility = function () {
