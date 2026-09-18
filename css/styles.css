@@ -121,7 +121,7 @@ ul { list-style: none; }
 .nav__link.is-active::after { transform: scaleX(1); }
 .nav__link--cta {
   color: var(--ink); background: #f1efe9;
-  padding: 0.5rem 1.1rem; border-radius: 999px;
+  padding: 0.5rem 1.1rem; border-radius: 13px;
   transition: background 0.25s var(--ease), color 0.25s var(--ease), transform 0.2s var(--ease);
 }
 .nav__link--cta:hover { background: #ffffff; color: var(--ink); }
@@ -143,7 +143,7 @@ ul { list-style: none; }
   gap: 2px;
   padding: 2px;
   border: 1px solid rgba(241, 239, 233, 0.35);
-  border-radius: 999px;
+  border-radius: 10px;
   transition: border-color 0.35s var(--ease);
 }
 .lang-switch__opt {
@@ -153,7 +153,7 @@ ul { list-style: none; }
   background: transparent;
   cursor: pointer;
   padding: 0.22rem 0.6rem;
-  border-radius: 999px;
+  border-radius: 8px;
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 500;
@@ -301,14 +301,22 @@ body.nav-light .scroll-progress {
 
 /* the hero itself is unpadded so the title can span the viewport; the button
    row keeps the page gutter */
-.hero__actions { padding-inline: var(--pad); }
+.hero__actions {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 0.9rem;
+  padding-inline: var(--pad);
+}
 
-.hero__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.9rem; }
-
+/* Button radius is deliberately NOT a pill: the custom target cursor frames
+   a hovered element with four right-angled corner brackets, so a 999px pill
+   fought those square corners. Every pill now uses r = 70% of its half-height
+   — round enough to read as deliberate, square enough to sit inside brackets
+   that meet at 90 degrees. Heights were measured in the browser:
+     .btn 53px -> 18px | .filter 37px -> 13px | .tag 40px -> 14px
+     .nav__link--cta 38px -> 13px | .lang-switch 28px -> 10px | __opt 22px -> 8px */
 .btn {
   display: inline-flex; align-items: center;
   padding: 0.85rem 1.7rem;
-  border-radius: 999px;
+  border-radius: 18px;
   font-weight: 600; font-size: 0.92rem;
   border: 1px solid transparent;
   cursor: pointer;
@@ -562,7 +570,7 @@ body.nav-light .scroll-progress {
 
 .tags { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .tag {
-  padding: 0.5rem 1rem; border-radius: 999px;
+  padding: 0.5rem 1rem; border-radius: 14px;
   border: 1px solid var(--line);
   font-size: 0.85rem; font-weight: 600;
   transition: background 0.3s, color 0.3s, border-color 0.3s;
@@ -578,7 +586,7 @@ body.nav-light .scroll-progress {
   font-family: var(--font-mono);
   font-size: 0.8rem; letter-spacing: 0.03em;
   padding: 0.55rem 1.15rem;
-  border-radius: 999px;
+  border-radius: 13px;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
