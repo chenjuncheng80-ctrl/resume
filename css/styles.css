@@ -263,17 +263,48 @@ body.nav-light .scroll-progress {
   z-index: 0;
 }
 /* Falling skill words (js/skill-fall.js): words plucked out of the hero glyph
-   field, dropping down the page until they settle on the About section. Fixed
-   to the viewport so they can travel past the hero, above the ripple they came
-   from, below the nav (50) and the cursor (2147483647). */
+   field and dropped into a matter-js world, so they stack on each other and
+   can be dragged. The layer is fixed to the viewport and stays transparent to
+   the pointer — only the words themselves take clicks, so nothing beneath the
+   fall layer is ever blocked by it. */
 .skill-fall {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
   pointer-events: none;
+  overflow: hidden;
   z-index: 3;
 }
+.skill-fall__fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+.skill-fall__words {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.skill-fall__word {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  cursor: grab;
+  white-space: nowrap;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;          /* a word dragged on a phone stays dragged */
+  will-change: transform, opacity;
+  transform: translate3d(-9999px, -9999px, 0);
+}
+.skill-fall__word.is-held { cursor: grabbing; }
+/* Once a word starts dissolving it stops being part of the furniture: no pick
+   up, no click target, no invisible obstacle over a link underneath it. */
+.skill-fall__word.is-ghost { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .skill-fall { display: none; }
 }

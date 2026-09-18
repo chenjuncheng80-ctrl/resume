@@ -1,215 +1,274 @@
-/* Skill-fall check — CDP harness (see cdp_cursor.mjs for the pattern).
-   Verifies: the word pool comes from the hero field, tokens actually fall,
-   they stop on the About section, and weight changes the fall speed.
-   Usage: node tools/cdp_fall.mjs */
-const PORT = 9333;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const http = async (p, m = 'GET') => (await fetch(`http://127.0.0.1:${PORT}${p}`, { method: m })).json().catch(() => ({}));
+/* =========================================================
+   Physical skill fall — driven through real Chrome frames
+   ---------------------------------------------------------
+   `node tools/cdp_fall.mjs`   (Chrome must be up on :9333)
 
-function connect(wsUrl) {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
-    let id = 0; const pending = new Map();
-    ws.addEventListener('open', () => resolve({
-      send(method, params = {}) {
-        const mid = ++id;
-        ws.send(JSON.stringify({ id: mid, method, params }));
-        return new Promise((r, j) => pending.set(mid, { r, j }));
-      },
-      close: () => ws.close()
-    }));
-    ws.addEventListener('message', (ev) => {
-      const m = JSON.parse(ev.data);
+   Everything here has to run against real requestAnimationFrame
+   ticks and real input events: the fall is a solver stepping at
+   60Hz, and neither a virtual clock nor MouseEvents synthesised
+   inside the page would exercise it.
+
+   `ev()` round-trips through JSON.stringify inside the page, so a
+   plain expression returning an object comes back as an object.
+   ========================================================= */
+
+const PORT = 9333;
+const URL = 'file:///C:/Users/chenj/Desktop/portfolio/index.html';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const http = async (p, m = 'GET') =>
+  (await fetch(`http://127.0.0.1:${PORT}${p}`, { method: m })).json().catch(() => ({}));
+
+function connect(u) {
+  return new Promise((res, rej) => {
+    const ws = new WebSocket(u);
+    let id = 0;
+    const pending = new Map();
+    const errors = [];
+    ws.addEventListener('open', () =>
+      res({
+        errors,
+        send(m, p = {}) {
+          const i = ++id;
+          ws.send(JSON.stringify({ id: i, method: m, params: p }));
+          return new Promise((r, j) => pending.set(i, { r, j }));
+        },
+        close: () => ws.close(),
+      })
+    );
+    ws.addEventListener('message', (e) => {
+      const m = JSON.parse(e.data);
       if (m.id && pending.has(m.id)) {
-        const p = pending.get(m.id); pending.delete(m.id);
+        const p = pending.get(m.id);
+        pending.delete(m.id);
         m.error ? p.j(new Error(JSON.stringify(m.error))) : p.r(m.result);
+      } else if (m.method === 'Runtime.exceptionThrown') {
+        errors.push('exception: ' + (m.params.exceptionDetails.text || ''));
+      } else if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
+        errors.push('console: ' + m.params.args.map((a) => a.value || a.description || '').join(' '));
       }
     });
-    ws.addEventListener('error', reject);
+    ws.addEventListener('error', rej);
   });
 }
 
-const target = await http(`/json/new?${encodeURIComponent('file:///C:/Users/chenj/Desktop/portfolio/index.html')}`, 'PUT');
+const target = await http(`/json/new?${encodeURIComponent(URL)}`, 'PUT');
 const page = await connect(target.webSocketDebuggerUrl);
 await page.send('Runtime.enable');
-
-const errs = [];
-const log = new WebSocket(target.webSocketDebuggerUrl);
-await new Promise((r) => log.addEventListener('open', r));
-log.addEventListener('message', (ev) => {
-  const m = JSON.parse(ev.data);
-  if (m.method === 'Runtime.exceptionThrown') errs.push('EXC ' + (m.params.exceptionDetails.exception || {}).description);
-  if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errs.push('CONSOLE ' + JSON.stringify(m.params.args.map((a) => a.value)));
-});
+await page.send('Page.enable');
 await sleep(2500);
 
-const evalx = async (e) => {
-  const r = await page.send('Runtime.evaluate', { expression: e, returnByValue: true });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.text + ' :: ' + e);
-  return r.result.value;
-};
-
-const boot = JSON.parse(await evalx(`JSON.stringify({
-  exists: !!window.__skillFall,
-  words: window.__skillFall ? window.__skillFall.words.length : 0,
-  sample: window.__skillFall ? window.__skillFall.words.slice(0, 6) : [],
-  hasRipple: !!(window.__skillFall && window.__skillFall.source.__asciiRipple),
-  fieldStart: (document.getElementById('heroAscii').getAttribute('data-text') || '').slice(0, 40)
-})`));
-console.log('boot', JSON.stringify(boot));
-
-// A heavy and a light word dropped from the same height — weight must show.
-await evalx(`(() => {
-  var f = window.__skillFall;
-  f.tokens.length = 0; f.dust.length = 0;
-  f.spawn(420, 260);            // whatever the bag gives us
-  f.spawn(700, 260);            // second sample
-  return true;
-})()`);
-await sleep(120);
-const t0 = JSON.parse(await evalx(`JSON.stringify(window.__skillFall.tokens.map(function(t){return {w:t.word, weight:t.weight, y:+t.y.toFixed(1), vy:+t.vy.toFixed(1)};}))`));
-await sleep(700);
-const t1 = JSON.parse(await evalx(`JSON.stringify(window.__skillFall.tokens.map(function(t){return {w:t.word, weight:t.weight, y:+t.y.toFixed(1), vy:+t.vy.toFixed(1)};}))`));
-
-// Landing line: About's BOTTOM edge, in document coordinates.
-const landY = JSON.parse(await evalx(`JSON.stringify((function(){
-  var r = document.querySelector('#about').getBoundingClientRect();
-  var sy = window.scrollY || window.pageYOffset || 0;
-  var top = r.top + sy, bottom = r.bottom + sy;
-  var ratio = window.__skillFall.o.landRatio;
-  return { aboutTopDoc: Math.round(top), aboutBottomDoc: Math.round(bottom), ratio: ratio,
-           landY: Math.round(window.__skillFall._landY()),
-           expected: Math.round(Math.min(top + (bottom - top) * ratio, bottom - 30)),
-           innerH: window.innerHeight };
-})())`));
-console.log('landing line (document coords)', JSON.stringify(landY));
-const landInsideSection =
-  landY.landY > landY.aboutTopDoc + (landY.aboutBottomDoc - landY.aboutTopDoc) * 0.2 &&
-  landY.landY < landY.aboutBottomDoc - 30;
-
-// A heavy word dropped from the hero has to reach that line — which sits
-// below the fold — and still be lying there when the reader scrolls down.
-// The timed spawner is parked for this so the sample is not crowded.
-await evalx(`(() => {
-  var f = window.__skillFall;
-  clearTimeout(f.spawnTimer); f.spawnTimer = 0;
-  f.tokens.length = 0; f.dust.length = 0;
-  f.tokens.push({ word: 'Premiere Pro', weight: 3, wn: 1, size: 17, x: 600, y: 300,
-    vx: 0, vy: 0, rot: 0, spin: 0, phase: 0, alpha: 0, base: 0.34,
-    born: performance.now(), landed: false, landedAt: 0, squash: 0, held: 0, seed: 1 });
-  f._wake(); return true;
-})()`);
-await sleep(3400);
-const rest = JSON.parse(await evalx(`JSON.stringify(window.__skillFall.tokens.map(function(t){
-  return { w: t.word, y: Math.round(t.y), landed: t.landed, offScreen: t.y > window.innerHeight };
-}))`));
-console.log('after the fall', JSON.stringify(rest));
-const restPP = rest.find((t) => t.w === 'Premiere Pro');
-const landedOnLine = !!restPP && restPP.landed &&
-  Math.abs(restPP.y - landY.landY) < 2 && restPP.offScreen === true;
-
-// It came to rest below the fold, so the fade must have waited for a reader.
-await sleep(1600);
-const held = JSON.parse(await evalx(`JSON.stringify(window.__skillFall.tokens.map(function(t){
-  return { w: t.word, y: Math.round(t.y), held: +(t.held).toFixed(2) };
-}))`));
-console.log('off-screen landing held', JSON.stringify(held));
-const heldPP = held.find((t) => t.w === 'Premiere Pro');
-const holdWorked = !!heldPP && heldPP.held > 0.5;
-
-// Scroll it into view — About is a pinned scene now, so "into view" means the
-// landing line itself, not the bottom of the section.
-await evalx(`window.scrollTo(0, window.__skillFall._landY() - window.innerHeight * 0.62); 'ok'`);
-await sleep(500);
-const onScreen = JSON.parse(await evalx(`JSON.stringify((function(){
-  var sy = window.scrollY || window.pageYOffset || 0;
-  return { h: window.innerHeight, tokens: window.__skillFall.tokens.map(function(t){
-    return { w: t.word, screenY: Math.round(t.y - sy), landed: t.landed };
-  }) };
-})())`));
-console.log('after scrolling to About', JSON.stringify(onScreen));
-const onScreenPP = onScreen.tokens.find((t) => t.w === 'Premiere Pro');
-const visibleAfterScroll = !!onScreenPP &&
-  onScreenPP.screenY > 0 && onScreenPP.screenY < onScreen.h;
-
-// Words must keep falling while About is on screen, not just while the hero is.
-await evalx(`(() => { var f = window.__skillFall; f.tokens.length = 0; f._queueSpawn(); return true; })()`);
-await sleep(3000);
-const whileReading = JSON.parse(await evalx(`JSON.stringify({
-  scrollY: Math.round(window.scrollY),
-  tokens: window.__skillFall.tokens.length,
-  fieldVisible: window.__skillFall.fieldVisible,
-  aboutVisible: window.__skillFall.aboutVisible })`));
-console.log('spawning while About is on screen', JSON.stringify(whileReading));
-const spawnsWhileReading = whileReading.tokens > 0 && whileReading.fieldVisible === false;
-
-await evalx(`window.scrollTo(0, 0); 'ok'`);
-await sleep(600);
-console.log('t+0.1s ', JSON.stringify(t0));
-console.log('t+0.8s ', JSON.stringify(t1));
-
-// Auto-spawns must start in the top half of the field, or a word barely falls.
-const spawnY = JSON.parse(await evalx(`(() => {
-  var f = window.__skillFall;
-  var r = f.source.getBoundingClientRect();
-  f.tokens.length = 0;
-  var ys = [];
-  for (var i = 0; i < 12; i++) { f.spawn(); ys.push(f.tokens[f.tokens.length - 1].y); }
-  return JSON.stringify({ ys: ys.map(function(y){return Math.round(y);}), h: Math.round(r.height) });
-})()`));
-console.log('spawn heights', JSON.stringify(spawnY));
-
-// let them reach the ground
-await sleep(2200);
-const landed = JSON.parse(await evalx(`JSON.stringify({
-  tokens: window.__skillFall.tokens.length,
-  landedFlags: window.__skillFall.tokens.map(function(t){return t.landed;}),
-  ys: window.__skillFall.tokens.map(function(t){return +t.y.toFixed(1);}),
-  dust: window.__skillFall.dust.length
-})`));
-console.log('after 3s', JSON.stringify(landed));
-
-// explicit weight race: Premiere Pro (3.0) vs Curious (0.7)
-await evalx(`(() => {
-  var f = window.__skillFall;
-  f.tokens.length = 0; f.dust.length = 0;
-  f.bag = [];
-  f.spawn(300, 200);
-  return true;
-})()`);
-const race = JSON.parse(await evalx(`(() => {
-  var f = window.__skillFall;
-  f.tokens.length = 0;
-  // push two known words by hand, same height
-  ['Premiere Pro', 'Curious'].forEach(function (word, i) {
-    var weight = f._weightOf(word);
-    f.tokens.push({ word: word, weight: weight, wn: (weight - 0.5) / 2.5, size: 16,
-      x: 300 + i * 400, y: 200, vx: 0, vy: 0, rot: 0, spin: 0, phase: 0,
-      alpha: 0, base: 0.34, born: performance.now(), landed: false, landedAt: 0, squash: 0, seed: 1 });
+async function ev(expr) {
+  const raw = await page.send('Runtime.evaluate', {
+    expression: 'JSON.stringify(' + expr + ')',
+    returnByValue: true,
   });
-  f._wake();
-  return JSON.stringify({ ok: true });
-})()`));
+  const s = raw.result && raw.result.value;
+  if (s === undefined) return undefined;
+  try { return JSON.parse(s); } catch (err) { return s; }
+}
+
+const mouse = (type, x, y) =>
+  page.send('Input.dispatchMouseEvent', {
+    type, x, y, button: 'left',
+    buttons: type === 'mouseReleased' ? 0 : 1,
+    clickCount: 1,
+  });
+
+const results = [];
+function check(name, ok, detail) {
+  results.push({ name, ok: !!ok });
+  console.log((ok ? '  PASS  ' : '  FAIL  ') + name + (detail === undefined ? '' : '   ' + detail));
+}
+
+const clear = () => ev(`(() => { const f = window.__skillFall; clearTimeout(f.spawnTimer);
+  f.tokens.slice().forEach(t => f._removeToken(t)); return true; })()`);
+
+/* Put one known word into play, dead still, so nothing about the measurement
+   depends on the random nudge spawn() gives it. */
+const drop = (word, x, y) => ev(`(() => { const f = window.__skillFall;
+  f.bag = ['${word}']; f.spawn(${x}, ${y});
+  const t = f.tokens[f.tokens.length - 1];
+  if (t) { Matter.Body.setVelocity(t.body, {x:0,y:0}); Matter.Body.setAngularVelocity(t.body, 0); }
+  return f.tokens.length; })()`);
+
+async function until(expr, ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (await ev(expr)) return true;
+    await sleep(120);
+  }
+  return false;
+}
+
+/* Headless Chrome refuses to scroll from a script in this setup — neither
+   scrollTo() with any behaviour nor assigning scrollTop moves the document,
+   although real user input does. So scroll by wheel and read back what was
+   actually reached. */
+async function scrollTo(y, tol = 60) {
+  for (let i = 0; i < 40; i++) {
+    const cur = await ev('Math.round(window.scrollY)');
+    if (Math.abs(cur - y) <= tol) return cur;
+    const delta = Math.max(-500, Math.min(500, y - cur));
+    await page.send('Input.dispatchMouseEvent', {
+      type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: delta,
+    });
+    await sleep(110);
+  }
+  return await ev('Math.round(window.scrollY)');
+}
+
+/* --- 1. boot ----------------------------------------------------------- */
+check('matter-js is loaded', (await ev(`typeof window.Matter`)) === 'object');
+check('layer exists once', (await ev(`document.querySelectorAll('.skill-fall').length`)) === 1);
+const vocab = await ev(`window.__skillFall.words`);
+check('vocabulary comes from the hero field',
+  vocab.length > 25 && vocab.indexOf('Adobe') >= 0 && vocab.indexOf('Unity') >= 0,
+  vocab.length + ' words');
+check('the layer does not swallow clicks',
+  (await ev(`getComputedStyle(document.querySelector('.skill-fall')).pointerEvents`)) === 'none');
+
+/* --- 2. a body is really being simulated ------------------------------- */
+await clear();
+const landY = await ev(`Math.round(window.__skillFall._landY())`);
+await drop('Photoshop', 600, 200);
+await sleep(700);
+const flying = await ev(`(() => { const t = window.__skillFall.tokens[0]; if (!t) return null;
+  return { y: Math.round(t.body.position.y), vy: +t.body.velocity.y.toFixed(3),
+           els: document.querySelectorAll('.skill-fall__word').length,
+           tx: t.el.style.transform.slice(0, 22), op: +t.el.style.opacity, base: +t.base.toFixed(3) }; })()`);
+check('a spawned word has a live body', flying && flying.y > 260, 'y=' + (flying && flying.y));
+check('a spawned word has a DOM element', flying && flying.els === 1);
+check('the element is positioned from the body', flying && /translate3d/.test(flying.tx), flying && flying.tx);
+check('it fades in rather than popping', flying && flying.op > 0.05 && flying.op <= flying.base + 0.001,
+  'opacity=' + (flying && flying.op) + '/' + (flying && flying.base));
+
+/* --- 3. weight has to be legible in the fall --------------------------- */
+const speedOf = async (word) => {
+  await clear();
+  await drop(word, 600, 120);
+  await sleep(1500);
+  return await ev(`(() => { const t = window.__skillFall.tokens[0]; return t ? Math.abs(t.body.velocity.y) * 60 : 0; })()`);
+};
+const vHeavy = await speedOf('Premiere Pro');
+const vLight = await speedOf('Curious');
+check('heavy words fall faster than light ones', vHeavy / vLight > 1.6 && vHeavy / vLight < 3,
+  Math.round(vLight) + ' -> ' + Math.round(vHeavy) + ' px/s (x' + (vHeavy / vLight).toFixed(2) + ')');
+check('nothing falls so fast it cannot be read', vHeavy < 700, Math.round(vHeavy) + ' px/s');
+
+/* --- 4. words stack instead of overlapping ----------------------------- */
+await clear();
+const parked = await scrollTo(landY - 400);
+await sleep(400);
+check('test scaffolding: the page really scrolled', Math.abs(parked - (landY - 400)) < 80, 'scrollY=' + parked);
+await drop('Adobe', 700, landY - 420);
+const landedFirst = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 8000);
+const lower = await ev(`(() => { const t = window.__skillFall.tokens[0]; return t ? { y: Math.round(t.y), h: t.h, landed: t.landed } : null; })()`);
+check('a word lands and the landing is noticed', landedFirst && lower && lower.landed, JSON.stringify(lower));
+check('it rests on the landing line, not through it',
+  lower && Math.abs(lower.y + lower.h / 2 - landY) < 8,
+  'bottom=' + (lower && Math.round(lower.y + lower.h / 2)) + ' line=' + landY);
+
+await drop('Blender', 700, landY - 420);
+const landedSecond = await until(`(() => { const f = window.__skillFall; return f.tokens.length > 1 && f.tokens[1].landed; })()`, 8000);
+const stack = await ev(`(() => { const ts = window.__skillFall.tokens.slice().sort((a,b) => a.y - b.y);
+  if (ts.length < 2) return null;
+  const top = ts[0], bot = ts[1];
+  return { gap: Math.round(bot.y - top.y), need: Math.round((bot.h + top.h) / 2) }; })()`);
+check('a second word settles on top of the first', landedSecond && stack && stack.gap > 0, JSON.stringify(stack));
+check('and does not sink into it', stack && stack.gap > stack.need * 0.6,
+  'gap=' + (stack && stack.gap) + ' ~ needed ' + (stack && stack.need));
+
+/* --- 5. five seconds on the floor, then gone --------------------------- */
+await clear();
+const parked2 = await scrollTo(landY - 400);
+check('test scaffolding: still scrolled for the fade test', Math.abs(parked2 - (landY - 400)) < 80, 'scrollY=' + parked2);
+await drop('Unity', 600, landY - 300);
+const landedThird = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 9000);
+await sleep(3000);
+const mid = await ev(`(() => { const t = window.__skillFall.tokens[0]; return t ? { op: +t.el.style.opacity, base: +t.base.toFixed(3), since: Math.round(performance.now() - t.landedAt) } : null; })()`);
+const late = await ev(`(() => { const f = window.__skillFall; return { n: f.tokens.length, detached: f.tokens[0] ? f.tokens[0].detached : null }; })()`);
+await sleep(2600);
+const gone = await ev(`(() => ({ n: window.__skillFall.tokens.length, els: document.querySelectorAll('.skill-fall__word').length }))()`);
+check('the countdown starts on landing', landedThird);
+check('it is still lying there around 3s', mid && mid.op > 0.02, JSON.stringify(mid));
+check('it has faded by then', mid && mid.op < mid.base * 0.8, 'op=' + (mid && mid.op) + ' base=' + (mid && mid.base));
+check('it leaves the simulation once half faded', late && late.detached === true, JSON.stringify(late));
+check('and is gone by five seconds', gone.n === 0 && gone.els === 0, JSON.stringify(gone));
+
+/* --- 6. pick one up ---------------------------------------------------- */
+await clear();
+await drop('Figma', 500, landY - 300);
+await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 9000);
+const before = await ev(`(() => { const t = window.__skillFall.tokens[0]; const sy = window.scrollY;
+  return { sx: Math.round(t.x), sy: Math.round(t.y - sy) }; })()`);
+await mouse('mousePressed', before.sx, before.sy);
+await sleep(80);
+const grabbed = await ev(`window.__skillFall.dragToken && window.__skillFall.dragToken.word`);
+check('a word can be picked up with the mouse', grabbed === 'Figma', String(grabbed));
+await mouse('mouseMoved', before.sx + 40, before.sy - 60);
+await sleep(60);
+await mouse('mouseMoved', before.sx + 120, before.sy - 180);
 await sleep(600);
-const raceState = JSON.parse(await evalx(`JSON.stringify(window.__skillFall.tokens.map(function(t){return {w:t.word, weight:t.weight, y:+t.y.toFixed(1), vy:+t.vy.toFixed(1)};}))`));
-console.log('weight race @0.6s', JSON.stringify(raceState));
+const held = await ev(`(() => { const t = window.__skillFall.dragToken; if (!t) return null;
+  return { x: Math.round(t.x), y: Math.round(t.y), sy: Math.round(window.scrollY) }; })()`);
+await mouse('mouseReleased', before.sx + 120, before.sy - 180);
+await sleep(150);
+const released = await ev(`window.__skillFall.drag === null && window.__skillFall.dragToken === null`);
+check('it follows the cursor while held', held && Math.abs(held.x - (before.sx + 120)) < 110,
+  JSON.stringify(held));
+check('and lets go on release', released === true);
+await sleep(1800);
+const afterThrow = await ev(`(() => { const t = window.__skillFall.tokens[0];
+  return t ? { y: Math.round(t.y), line: ${landY} } : { y: null, line: ${landY} }; })()`);
+check('then falls back down to the line', afterThrow.y === null || afterThrow.y > afterThrow.line - 260,
+  JSON.stringify(afterThrow));
 
-const pass =
-  boot.exists && boot.words > 20 && boot.hasRipple &&
-  boot.fieldStart.indexOf('Adobe') === 0 &&
-  t1.length > 0 && t1.every((t) => t.y > t0[0].y) &&
-  Math.abs(landY.landY - landY.expected) < 1 &&
-  landInsideSection && landedOnLine && holdWorked &&
-  visibleAfterScroll && spawnsWhileReading &&
-  spawnY.ys.length === 12 && spawnY.ys.every((y) => y < spawnY.h * 0.55) &&
-  errs.length === 0;
-const heavy = raceState.find((t) => t.w === 'Premiere Pro');
-const light = raceState.find((t) => t.w === 'Curious');
-console.log('heavy/light speed ratio =', (heavy.vy / light.vy).toFixed(2), '(expect > 1.5)');
-console.log('errors:', errs.length ? errs : 'none');
-console.log(pass && heavy.vy / light.vy > 1.5 ? 'RESULT: PASS' : 'RESULT: FAIL');
+/* --- 7. it stays out of the way ---------------------------------------- */
+await scrollTo(0);
+await sleep(400);
+const pluckAt = await ev(`(function () { var h = document.querySelector('.hero').getBoundingClientRect();
+  return { x: Math.round(h.left + h.width / 2), y: Math.round(h.top + h.height - 30) }; })()`);
+await ev(`(function () { window.__navClicks = 0;
+  var a = document.querySelector('.nav a[href="#about"]');
+  if (a) a.addEventListener('click', function (e) { window.__navClicks++; e.preventDefault(); });
+  return a ? a.textContent : null; })()`);
+check('the nav link probe is wired up', (await ev('window.__navClicks')) === 0, 'clicks=' + (await ev('window.__navClicks')));
 
-log.close();
+await mouse('mousePressed', 700, 300);
+await sleep(80);
+check('a press on empty space grabs nothing', (await ev('window.__skillFall.drag === null')) === true);
+await mouse('mouseReleased', 700, 300);
+await sleep(250);
+
+const link = await ev(`(function () { var a = document.querySelector('.nav a[href="#about"]');
+  var r = a.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+await mouse('mousePressed', link.x, link.y);
+await sleep(60);
+await mouse('mouseReleased', link.x, link.y);
+await sleep(300);
+const navClicks = await ev('window.__navClicks');
+check('links under the layer still receive clicks', navClicks > 0, 'clicks=' + navClicks);
+
+// Count alone is not enough: a word that finished its five seconds can be
+// collected in the same instant, so watch for a NEWLY BORN token instead.
+const beforePluck = await ev('window.__skillFall.tokens.reduce(function (m, t) { return Math.max(m, t.born); }, 0)');
+await mouse('mousePressed', pluckAt.x, pluckAt.y);
+await sleep(400);
+await mouse('mouseReleased', pluckAt.x, pluckAt.y);
+const afterPluck = await ev('window.__skillFall.tokens.reduce(function (m, t) { return Math.max(m, t.born); }, 0)');
+check('clicking the hero still plucks a word', afterPluck > beforePluck,
+  'newest token ' + Math.round(beforePluck) + ' -> ' + Math.round(afterPluck));
+
+/* --- 8. nothing leaked ------------------------------------------------- */
+await clear();
+await sleep(300);
+const leftovers = await ev(`document.querySelectorAll('.skill-fall__word').length`);
+check('no DOM words left behind', leftovers === 0, String(leftovers));
+if (page.errors.length) console.log('\npage complained:\n' + page.errors.map((e) => '  ' + e).join('\n'));
+check('no errors logged', page.errors.length === 0, page.errors.length + ' logged');
+
+const failed = results.filter((r) => !r.ok);
+console.log('\n' + (results.length - failed.length) + '/' + results.length + ' checks passed');
 await http(`/json/close/${target.id}`, 'PUT').catch(() => {});
 page.close();
-process.exit(pass ? 0 : 1);
+process.exit(failed.length ? 1 : 0);

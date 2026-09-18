@@ -1,71 +1,119 @@
 /* =========================================================
-   Skill fall — words that detach from the hero field and drop
+   Skill fall — physics edition
    ---------------------------------------------------------
-   The hero background is a field of monospace glyphs spelling out
-   the owner's tools, disciplines and traits (see data-text on
-   #heroAscii). This layer plucks individual words out of that
-   field and lets them fall down the page until they reach the
-   bottom of the About section, where they settle and fade out.
+   The hero background is a field of monospace glyphs spelling
+   out the owner's tools, disciplines and traits (see data-text
+   on #heroAscii). This layer plucks individual words out of
+   that field and lets them fall down the page until they reach
+   the About section, where they pile up, can be picked up with
+   the mouse, and lie there for five seconds before fading out.
 
-   Every token carries a WEIGHT. The weight is the whole point of
-   the effect, so it drives four things at once:
-     - fall speed   — heavier words accelerate harder and have a
-                      higher terminal velocity
-     - wander       — light words drift and tumble, heavy ones
-                      drop almost straight
-     - size / ink   — heavier words render a touch larger and darker
-     - impact       — a heavy word squashes on landing and throws
-                      more dust than a light one
+   The motion is a real rigid-body simulation (matter-js, see
+   js/vendor/matter.min.js) rather than the hand-rolled gravity
+   this file used to carry. That buys three things a scripted
+   fall cannot fake:
 
-   Geometry. The canvas is fixed to the viewport but every token
-   is tracked in DOCUMENT coordinates and only shifted by scrollY
-   at paint time. That is what lets a word leave the hero, cross
-   the fold and keep going down to the end of About: a word that
-   is merely clamped to the bottom of the window has not fallen
-   anywhere, it has just stopped.
+     - words collide, so they stack on each other instead of
+       overlapping into an unreadable smear
+     - they can be grabbed and thrown, and a thrown word shoves
+       whatever it lands on
+     - nothing is ever quite repeated: angle, spin and bounce
+       come out of the solver
 
-   A word that lands while it is off screen holds its fade until
-   it has been looked at (for a few seconds, at least), so
-   scrolling down to About finds words resting there rather than
-   an empty section.
+   WEIGHT still matters — every word carries one, and it drives
+   four things at once:
+     - fall speed — heavy words accelerate harder (an extra
+       gravity force) and have a HIGHER terminal velocity
+       (lower air friction), so they arrive like a sandbag
+     - wander     — light words get a sideways nudge on release
+       and hold it; heavy ones drop almost straight
+     - size / ink — heavier words render a touch larger
+     - bounce     — light ones skitter on impact, heavy ones
+       barely come back up
 
-   Cost. Nothing runs when there is nothing in the air: the rAF
-   chain stops as soon as the last token and its dust are gone and
-   is restarted by the next spawn timer.
+   Geometry. Words live in DOCUMENT coordinates and are only
+   shifted by scrollY at paint time, which is what lets one
+   leave the hero, cross the fold and keep going down into
+   About. The floor follows the landing line, so a word always
+   comes to rest relative to the section, whatever the layout
+   has done in between.
+
+   A word that lands off screen holds its countdown until it
+   has been looked at, so scrolling down to About finds words
+   lying there rather than an empty section.
+
+   Cost. Nothing runs when there is nothing moving: the rAF
+   chain stops once the last word is gone and is restarted by
+   the next spawn timer.
    ========================================================= */
 
 (function (global) {
   "use strict";
 
+  var M = global.Matter;
+
   var DEFAULTS = {
     source: "#heroAscii",     // canvas whose data-text supplies the vocabulary
-    landing: "#about",        // where a token comes to rest
-    landOffset: 30,           // px above the landing point — a word falls the
-                              // whole way down instead of stopping at the title
-    landRatio: 0.35,          // where in the landing section it stops, 0..1.
-                              // About is now a 240vh pinned scene, so its real
-                              // bottom is a 2500px trip — nobody would ever see
-                              // the word arrive. 0.35 is the height of the name
-                              // card, where the section is actually being read.
-    spawnLead: 60,            // a word joins the fall this far above the top of
-                              // the window once the field itself has scrolled
-                              // out of the way, so the trip stays watchable
+    landing: "#about",        // the section whose floor catches the words
+
+    /* --- landing line ------------------------------------------------
+       About is now a 240vh pinned scene, so its real bottom is a 2500px
+       trip nobody would sit through. 0.35 of the way down is where the
+       name card swings in — the part of the section actually being read. */
+    landRatio: 0.35,
+    landOffset: 30,           // px of clearance above the very bottom edge
+
     separator: "\u00b7",      // the data-text splits into words on this
-    everyMin: 1000,           // ms between spawns
-    everyMax: 2600,
-    maxTokens: 8,
+    everyMin: 1400,           // ms between spawns
+    everyMax: 3200,
+    maxTokens: 6,
+
     fontSize: 15,             // px at weight 1
-    gravity: 900,             // px/s^2 at weight 1
-    terminal: 340,            // px/s at weight 1 — slow enough to READ the
-                              // word on the way down (~1.9s over the hero)
+
+    /* --- physics ---------------------------------------------------- */
+    engineGravity: 0.62,      // matter units; 1 is earth
+    heavyBoost: 0.85,         // extra downward force at max weight: "heavy"
+                              // should also mean it WANTS to go down, not
+                              // merely that it falls faster once moving
+    airLight: 0.0475,         // air friction at the lightest weight — high
+                              // drag, so it flutters down slowly
+    airHeavy: 0.0364,         // ...and at the heaviest. These three were set
+                              // by MEASURING terminal velocity in the browser
+                              // rather than solving for it: ~230 px/s light,
+                              // ~280 mid, ~520 heavy, i.e. a ratio of ~2.3 —
+                              // fast enough to read on the way down, heavy
+                              // enough to feel like it hit something.
+    restitutionLight: 0.42,   // bounce
+    restitutionHeavy: 0.24,
+    friction: 0.26,           // surface friction. High enough that a pile does
+                              // not slide apart, low enough that a word which
+                              // ends up on its end slips over and lies flat
+                              // again — text reads badly standing up.
+    frictionStatic: 0.5,
+    spinLight: 0.09,          // rad/s of initial tumble
+    spinHeavy: 0.012,
+    slop: 0.5,                // px/step under which a body reads as at rest
+    restTime: 320,            // ms at rest before it counts as landed
+    restAge: 600,             // ms after spawn before rest may register —
+                              // otherwise a word counts as landed the
+                              // instant it lets go of the field
+
+    /* --- life cycle ------------------------------------------------- */
     appear: 220,              // ms fade-in, so a word does not pop into being
-    sway: 30,                 // px/s^2 of sideways drift at weight 1
-    tumble: 80,               // deg/s at weight 1
-    fade: 950,                // ms from landing to gone
+    fade: 5000,               // ms a word lies on the floor after landing
+    detachAt: 0.5,            // fraction of `fade` after which it leaves the
+                              // simulation: ghosts still visible should not
+                              // be solid obstacles for the next arrivals
     hold: 6,                  // s a landing off screen waits to be seen
+
+    drag: true,
+    dragStiffness: 0.9,
+    dragDamping: 0.15,
+
     opacity: 0.34,
     dust: true,
-    maxDPR: 2
+    maxDPR: 2,
+    maxSteps: 3               // physics steps per frame ceiling
   };
 
   /* Weight per word. Tools are heavy — a full NLE or a 3D suite should land
@@ -87,6 +135,7 @@
   var DEFAULT_WEIGHT = 1;
 
   var W_MIN = 0.5, W_MAX = 3.0;     // weight range used for visual scaling
+  var STEP_MS = 1000 / 60;          // fixed physics step
 
   function nowMs() {
     return (global.performance && global.performance.now) ? global.performance.now() : Date.now();
@@ -110,6 +159,10 @@
     if (options) for (k in options) if (Object.prototype.hasOwnProperty.call(options, k)) o[k] = options[k];
     this.o = o;
 
+    // Without the solver there is no effect at all — degrade to a quiet page
+    // rather than throwing on every frame.
+    if (!M || !M.Engine) return;
+
     this.source = document.querySelector(o.source);
     this.landing = document.querySelector(o.landing);
     if (!this.source || !this.landing) return;
@@ -121,26 +174,43 @@
     this.words = this._vocabulary();
     if (!this.words.length) return;
 
+    this.fontFamily = readToken("--font-mono", "ui-monospace, Menlo, Consolas, monospace");
+
+    this.layer = document.createElement("div");
+    this.layer.className = "skill-fall";
+    this.layer.setAttribute("aria-hidden", "true");
+
     this.canvas = document.createElement("canvas");
-    this.canvas.className = "skill-fall";
-    this.canvas.setAttribute("aria-hidden", "true");
-    document.body.appendChild(this.canvas);
+    this.canvas.className = "skill-fall__fx";
+    this.layer.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d");
 
-    this.fontFamily = readToken("--font-mono", "ui-monospace, Menlo, Consolas, monospace");
+    this.words_ = document.createElement("div");
+    this.words_.className = "skill-fall__words";
+    this.layer.appendChild(this.words_);
+
+    document.body.appendChild(this.layer);
+
     this.tokens = [];
     this.dust = [];
     this.bag = [];
     this.raf = 0;
     this.spawnTimer = 0;
     this.lastFrame = 0;
+    this.acc = 0;
     this.fieldVisible = true;
     this.aboutVisible = false;
+    this.drag = null;
+    this.dragToken = null;
+    this.floorY = null;
 
     this.resize();
+    this._initWorld();
     this._bind();
     this._queueSpawn();
   }
+
+  /* ---------- vocabulary ------------------------------------------------ */
 
   /* The vocabulary is the hero field's own data-text, split on the separator,
      so one edit to the canvas keeps the field and the falling words in sync. */
@@ -174,16 +244,94 @@
     return typeof w === "number" ? w : DEFAULT_WEIGHT;
   };
 
+  /* ---------- world ----------------------------------------------------- */
+
+  SkillFall.prototype._initWorld = function () {
+    var self = this;
+    this.engine = M.Engine.create({ enableSleeping: false });
+    this.engine.gravity.y = this.o.engineGravity;
+    this.world = this.engine.world;
+
+    // Heavy words get an extra pull, not just less drag: gravity in a solver
+    // accelerates everything equally, so "heavy" has to be added by hand.
+    M.Events.on(this.engine, "beforeUpdate", function () {
+      var g = self.engine.gravity.y * self.engine.gravity.scale;
+      for (var i = 0; i < self.tokens.length; i++) {
+        var t = self.tokens[i];
+        if (t.body && !t.detached) {
+          t.body.force.y += t.body.mass * g * self.o.heavyBoost * t.wn;
+        }
+      }
+    });
+
+    this.bounds = [];
+    this._buildBounds();
+  };
+
+  /* The four walls. Rebuilt on resize because their size depends on the
+     viewport, and because a static box that no longer covers the page is
+     a hole the words eventually find. */
+  SkillFall.prototype._buildBounds = function () {
+    var opts = { isStatic: true, friction: 0.8, restitution: 0.02, render: { visible: false } };
+    var w = this.cssW;
+    var h = Math.max(document.documentElement.scrollHeight || 0, this.cssH * 4);
+    var wide = Math.max(w, 6000);
+    var ground = this._landY();
+
+    var next = [
+      // floor: its top face IS the landing line, so no further offset needed
+      M.Bodies.rectangle(w / 2, ground + 40, wide, 80, opts),
+      M.Bodies.rectangle(-30, h / 2, 60, h * 2, opts),
+      M.Bodies.rectangle(w + 30, h / 2, 60, h * 2, opts),
+      // a lid, purely so a thrown word cannot leave the page upwards
+      M.Bodies.rectangle(w / 2, -600, wide, 60, opts)
+    ];
+
+    if (this.bounds.length) M.Composite.remove(this.world, this.bounds);
+    this.bounds = next;
+    this.floor = next[0];
+    this.floorY = ground;
+    M.Composite.add(this.world, next);
+  };
+
   /* ---------- canvas ---------- */
   SkillFall.prototype.resize = function () {
     var dpr = Math.min(this.o.maxDPR, global.devicePixelRatio || 1);
     var w = global.innerWidth;
     var h = global.innerHeight;
+    var changed = w !== this.cssW || h !== this.cssH;
     this.cssW = w;
     this.cssH = h;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (changed && this.bounds && this.bounds.length) this._buildBounds();
+  };
+
+  /* ---------- coordinates ---------- */
+  SkillFall.prototype._scrollY = function () {
+    return global.scrollY || global.pageYOffset || 0;
+  };
+
+  /* The landing line, in document coordinates: `landRatio` of the way down
+     the landing section, never past its bottom edge. */
+  SkillFall.prototype._landY = function () {
+    var r = this.landing.getBoundingClientRect();
+    var sy = this._scrollY();
+    var top = r.top + sy;
+    var bottom = r.bottom + sy;
+    return Math.min(top + (bottom - top) * this.o.landRatio, bottom - this.o.landOffset);
+  };
+
+  /* Keep the floor under the section even if the layout reflows. Only moved
+     when it actually moved — nudging a static body every frame would jog
+     whatever is asleep on it. */
+  SkillFall.prototype._syncFloor = function () {
+    var ground = this._landY();
+    if (this.floorY === null || Math.abs(ground - this.floorY) > 0.5) {
+      this.floorY = ground;
+      M.Body.setPosition(this.floor, { x: this.cssW / 2, y: ground + 40 });
+    }
   };
 
   /* ---------- spawning ---------- */
@@ -201,9 +349,10 @@
     }, wait);
   };
 
-  /* Spawn one token from a random point inside the hero field.
-     x/y are optional DOCUMENT coordinates (used by the click pluck). */
+  /* Spawn one word from the hero field. x/y are optional DOCUMENT
+     coordinates (used by the click pluck). */
   SkillFall.prototype.spawn = function (x, y) {
+    var o = this.o;
     var r = this.source.getBoundingClientRect();
     var sy = this._scrollY();
     var word = this._nextWord();
@@ -211,36 +360,64 @@
     var wn = clamp01((weight - W_MIN) / (W_MAX - W_MIN));
 
     var px = typeof x === "number" ? x : rand(r.left + 20, Math.max(r.left + 24, r.right - 20));
-    // Only the upper half of the field sheds words — spawning near the bottom
-    // gave some tokens a 20px trip, so they appeared already landed. Once the
-    // field has scrolled away the word joins the fall just above the window
-    // instead, otherwise the drop would take four seconds to watch.
+    // Only the upper half of the field sheds words — releasing near its
+    // bottom gave some of them a 20px trip, so they appeared already landed.
+    // Once the field has scrolled away the word joins the fall just above the
+    // window instead, otherwise the drop takes four seconds to watch.
     var fieldTop = r.top + sy;
     var py = typeof y === "number" ? y
       : Math.max(rand(fieldTop + r.height * 0.06, fieldTop + r.height * 0.48),
-                 sy - this.o.spawnLead);
+                 sy - 60);
 
-    var size = this.o.fontSize * (0.86 + 0.16 * weight);
+    var size = o.fontSize * (0.86 + 0.16 * weight);
+
+    var el = document.createElement("span");
+    el.className = "skill-fall__word";
+    el.textContent = word;
+    el.style.font = "500 " + size.toFixed(2) + "px " + this.fontFamily;
+    el.style.color = "rgb(20,20,20)";
+    el.style.opacity = "0";
+    this.words_.appendChild(el);
+
+    // Measured after it is in the document, so the box matches what is drawn.
+    var bw = el.offsetWidth;
+    var bh = el.offsetHeight;
+    if (!bw || !bh) { this.words_.removeChild(el); return false; }
+
+    var body = M.Bodies.rectangle(px, py, bw, bh, {
+      restitution: o.restitutionLight + (o.restitutionHeavy - o.restitutionLight) * wn,
+      friction: o.friction,
+      frictionStatic: o.frictionStatic,
+      frictionAir: o.airLight + (o.airHeavy - o.airLight) * wn,
+      density: 0.0008 + 0.0012 * wn,     // heavier words shove, light ones yield
+      render: { visible: false }
+    });
+    M.Body.setVelocity(body, {
+      x: rand(-1.6, 1.6) * (1.4 - 0.9 * wn),   // light words drift sideways
+      y: rand(0, 0.6)
+    });
+    M.Body.setAngularVelocity(body, rand(-1, 1) * (o.spinLight + (o.spinHeavy - o.spinLight) * wn));
+    M.Composite.add(this.world, body);
+
     this.tokens.push({
       word: word,
       weight: weight,
       wn: wn,
-      size: size,
-      x: px,
-      y: py,
-      vx: rand(-14, 14) / weight,
-      vy: rand(0, 40),
-      rot: rand(-8, 8),
-      spin: rand(-1, 1) * this.o.tumble / weight,
-      phase: rand(0, Math.PI * 2),
-      alpha: 0,                 // faded in over `appear` ms, see _update
-      base: this.o.opacity * (0.78 + 0.22 * wn),
+      el: el,
+      body: body,
+      w: bw,
+      h: bh,
+      base: o.opacity * (0.78 + 0.22 * wn),
+      alpha: 0,
       born: nowMs(),
       landed: false,
       landedAt: 0,
-      squash: 0,
       held: 0,
-      seed: Math.random() * 1000
+      restMs: 0,
+      detached: false,
+      x: px,
+      y: py,
+      angle: 0
     });
 
     // pluck the field where the word came from: a small ripple in the surface.
@@ -255,83 +432,99 @@
     return true;
   };
 
-  /* ---------- coordinates ---------- */
-  SkillFall.prototype._scrollY = function () {
-    return global.scrollY || global.pageYOffset || 0;
+  SkillFall.prototype._removeToken = function (token) {
+    var i = this.tokens.indexOf(token);
+    if (i >= 0) this.tokens.splice(i, 1);
+    if (token.el && token.el.parentNode) token.el.parentNode.removeChild(token.el);
+    if (token.body && token.worldJoined !== false) {
+      try { M.Composite.remove(this.world, token.body); } catch (e) { /* already gone */ }
+    }
+    if (this.dragToken === token) this._endDrag();
   };
 
-  /* ---------- landing line ----------
-     In document coordinates, `landRatio` of the way down the landing section
-     and never below its bottom edge — a word crosses the section before it
-     lands. */
-  SkillFall.prototype._landY = function () {
-    var r = this.landing.getBoundingClientRect();
-    var sy = this._scrollY();
-    var top = r.top + sy;
-    var bottom = r.bottom + sy;
-    return Math.min(top + (bottom - top) * this.o.landRatio, bottom - this.o.landOffset);
+  /* ---------- step + paint ---------- */
+  SkillFall.prototype._stepPhysics = function (dtMs) {
+    this.acc += dtMs;
+    var steps = 0;
+    while (this.acc >= STEP_MS && steps < this.o.maxSteps) {
+      M.Engine.update(this.engine, STEP_MS);
+      this.acc -= STEP_MS;
+      steps++;
+    }
+    // A long stall should not be paid back as a burst of catch-up frames.
+    if (steps >= this.o.maxSteps) this.acc = 0;
   };
 
-  /* ---------- physics + paint ---------- */
   SkillFall.prototype._update = function (dt) {
     var o = this.o;
-    var landY = this._landY();
+    var now = nowMs();
     var sy = this._scrollY();
     var viewTop = sy - 60;
     var viewBottom = sy + this.cssH + 40;
-    var now = nowMs();
     var i;
+
+    this._syncFloor();
+    this._stepPhysics(dt * 1000);
 
     for (i = this.tokens.length - 1; i >= 0; i--) {
       var t = this.tokens[i];
+      var b = t.body;
+
+      if (!t.detached && b) {
+        t.x = b.position.x;
+        t.y = b.position.y;
+        t.angle = b.angle;
+      }
 
       if (!t.landed) {
         t.alpha = t.base * clamp01((now - t.born) / o.appear);
 
-        var accel = o.gravity * (0.55 + 0.45 * t.weight);
-        var term = o.terminal * (0.7 + 0.3 * t.weight);
-        t.vy = Math.min(term, t.vy + accel * dt);
-
-        // light words wander, heavy ones hold their line
-        t.phase += dt * 1.7;
-        t.vx += Math.sin(t.phase + t.seed) * (o.sway / t.weight) * dt;
-        t.vx *= 0.985;
-        t.rot += t.spin * dt;
-
-        t.x += t.vx * dt;
-        t.y += t.vy * dt;
-
-        if (t.y >= landY) {
-          t.y = landY;
-          t.landed = true;
-          t.landedAt = now;
-          // heavier = harder hit = more squash and more dust
-          t.squash = 0.18 + 0.34 * t.wn;
-          if (o.dust) this._puff(t);
-          if (t.x < 8 || t.x > this.cssW - 8) t.x = clamp(t.x, 8, this.cssW - 8);
+        // Landed = genuinely at rest, which covers both "hit the floor" and
+        // "settled on top of another word". Being dragged does not count.
+        if (now - t.born > o.restAge && !this.dragToken) {
+          var v = b ? Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y) : 1;
+          if (v < o.slop) {
+            t.restMs += dt * 1000;
+            if (t.restMs >= o.restTime) {
+              t.landed = true;
+              t.landedAt = now;
+              if (o.dust) this._puff(t);
+            }
+          } else {
+            t.restMs = 0;
+          }
+        } else {
+          t.restMs = 0;
         }
       } else {
-        // settle: eased upright, drifting to a halt, fading out
         var since = now - t.landedAt;
-        t.rot += (0 - t.rot) * Math.min(1, dt * 6);
-        t.x += t.vx * dt * 0.25;
-        t.vx *= 0.94;
-        t.squash += (0 - t.squash) * Math.min(1, dt * 7);
 
-        // A word that came to rest below the fold holds its fade for up to
-        // `hold` seconds, so scrolling down to About actually finds words
+        // A word that came to rest below the fold holds its countdown for up
+        // to `hold` seconds, so scrolling down to About actually finds words
         // lying there. After that it fades like any other.
-        if (t.held < o.hold) {
-          if (t.y < viewTop || t.y > viewBottom) { t.landedAt += dt * 1000; t.held += dt; }
+        if (t.held < o.hold && (t.y < viewTop || t.y > viewBottom)) {
+          t.landedAt += dt * 1000;
+          t.held += dt;
+        }
+
+        // Halfway through its fade a word stops being solid — otherwise the
+        // next arrivals would stack on invisible ghosts.
+        if (!t.detached && since > o.fade * o.detachAt && this.dragToken !== t) {
+          if (b) { M.Composite.remove(this.world, b); t.worldJoined = false; }
+          t.detached = true;
+          // Nor grabbable, nor blocking: a ghost should never swallow a click
+          // meant for whatever is underneath it.
+          t.el.classList.add("is-ghost");
         }
 
         t.alpha = t.base * (1 - clamp01(since / o.fade));
-        if (since >= o.fade) { this.tokens.splice(i, 1); continue; }
+        if (since >= o.fade) { this._removeToken(t); continue; }
       }
 
-      // still falling long after the landing line — something moved the page
-      // under it; drop it rather than let it chase the section forever
-      if (!t.landed && t.y > landY + 400) { this.tokens.splice(i, 1); continue; }
+      // something moved the page out from under it, or it escaped sideways
+      if (t.x < -400 || t.x > this.cssW + 400 || t.y > this.floorY + 700) {
+        this._removeToken(t); continue;
+      }
     }
 
     for (i = this.dust.length - 1; i >= 0; i--) {
@@ -348,12 +541,13 @@
   /* Impact dust: a few flecks thrown sideways, count and reach scaled by the
      weight so a heavy tool visibly hits the deck. */
   SkillFall.prototype._puff = function (t) {
+    var half = t.w / 2;
     var n = Math.round(3 + 5 * t.wn);
     for (var i = 0; i < n; i++) {
       var dir = Math.random() < 0.5 ? -1 : 1;
       this.dust.push({
-        x: t.x + rand(-t.size * 1.4, t.size * 1.4),
-        y: t.y + t.size * 0.4,
+        x: t.x + rand(-half, half),
+        y: t.y + t.h * 0.5,
         vx: dir * rand(30, 130) * (0.6 + 0.6 * t.wn),
         vy: rand(-90, -20) * (0.5 + 0.5 * t.wn),
         size: rand(1.1, 2.4),
@@ -365,26 +559,20 @@
   };
 
   SkillFall.prototype._render = function () {
-    var ctx = this.ctx;
     var sy = this._scrollY();
-    ctx.clearRect(0, 0, this.cssW, this.cssH);
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-
     var i;
+
     for (i = 0; i < this.tokens.length; i++) {
       var t = this.tokens[i];
-      ctx.save();
-      ctx.translate(t.x, t.y - sy);
-      ctx.rotate(t.rot * Math.PI / 180);
-      // squash on impact: flatten vertically, widen a little
-      ctx.scale(1 + t.squash * 0.5, 1 - t.squash);
-      ctx.font = "500 " + t.size.toFixed(2) + "px " + this.fontFamily;
-      ctx.fillStyle = "rgba(20,20,20," + clamp01(t.alpha).toFixed(3) + ")";
-      ctx.fillText(t.word, 0, 0);
-      ctx.restore();
+      var x = t.x - t.w / 2;
+      var y = t.y - sy - t.h / 2;
+      t.el.style.transform = "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px,0)" +
+        " rotate(" + t.angle.toFixed(4) + "rad)";
+      t.el.style.opacity = clamp01(t.alpha).toFixed(3);
     }
 
+    var ctx = this.ctx;
+    ctx.clearRect(0, 0, this.cssW, this.cssH);
     for (i = 0; i < this.dust.length; i++) {
       var d = this.dust[i];
       var a = clamp01(d.life / d.max) * d.alpha;
@@ -420,6 +608,61 @@
     }
   };
 
+  /* ---------- picking words up ---------- */
+  SkillFall.prototype._pickAt = function (x, y) {
+    var bodies = [];
+    for (var i = 0; i < this.tokens.length; i++) {
+      var t = this.tokens[i];
+      if (t.body && !t.detached) bodies.push(t.body);
+    }
+    var hits = M.Query.point(bodies, { x: x, y: y });
+    if (!hits.length) return null;
+    for (var j = this.tokens.length - 1; j >= 0; j--) {
+      if (this.tokens[j].body === hits[hits.length - 1]) return this.tokens[j];
+    }
+    return null;
+  };
+
+  SkillFall.prototype._startDrag = function (t, x, y) {
+    var b = t.body;
+    if (!b) return;
+    // Grab it where it was clicked, not by the centre — the offset has to be
+    // rotated into the body's own frame, or a spun word snaps to the cursor.
+    var off = M.Vector.sub({ x: x, y: y }, b.position);
+    var c = Math.cos(-b.angle), s = Math.sin(-b.angle);
+    var local = { x: off.x * c - off.y * s, y: off.x * s + off.y * c };
+
+    this.drag = M.Constraint.create({
+      pointA: { x: x, y: y },
+      bodyB: b,
+      pointB: local,
+      stiffness: this.o.dragStiffness,
+      damping: this.o.dragDamping,
+      length: 0,
+      render: { visible: false }
+    });
+    this.dragToken = t;
+    M.Composite.add(this.world, this.drag);
+    t.el.classList.add("is-held");
+    this._wake();
+  };
+
+  SkillFall.prototype._endDrag = function () {
+    if (this.drag) {
+      try { M.Composite.remove(this.world, this.drag); } catch (e) { /* gone */ }
+      this.drag = null;
+    }
+    if (this.dragToken) {
+      if (this.dragToken.el) this.dragToken.el.classList.remove("is-held");
+      // A dropped word gets its landing countdown back from scratch: throwing
+      // it across the floor should not count as having landed.
+      this.dragToken.landed = false;
+      this.dragToken.landedAt = 0;
+      this.dragToken.restMs = 0;
+      this.dragToken = null;
+    }
+  };
+
   /* ---------- wiring ---------- */
   SkillFall.prototype._bind = function () {
     var self = this;
@@ -433,6 +676,36 @@
       self.spawn(e.clientX, e.clientY + self._scrollY());
     };
     this.source.parentElement.addEventListener("pointerdown", this._onDown, { passive: true });
+
+    // Dragging is tracked on the window, not on the word: once the cursor
+    // leaves the word it is over something else, and a listener on the word
+    // would lose it mid-throw.
+    if (this.o.drag) {
+      this._onGrab = function (e) {
+        if (e.button !== undefined && e.button !== 0) return;
+        if (self.drag) return;
+        // Only a press that lands on a word is ours; everything else on the
+        // page has to keep working exactly as before.
+        var cls = e.target && e.target.classList;
+        if (!cls || !cls.contains("skill-fall__word")) return;
+        var t = self._pickAt(e.clientX, e.clientY + self._scrollY());
+        if (!t) return;
+        e.preventDefault();
+        self._startDrag(t, e.clientX, e.clientY + self._scrollY());
+      };
+      this._onDragMove = function (e) {
+        if (!self.drag) return;
+        self.drag.pointA.x = e.clientX;
+        self.drag.pointA.y = e.clientY + self._scrollY();
+        self._wake();
+      };
+      this._onRelease = function () { if (self.drag) self._endDrag(); };
+      global.addEventListener("pointerdown", this._onGrab, true);
+      global.addEventListener("pointermove", this._onDragMove, { passive: true });
+      global.addEventListener("pointerup", this._onRelease, true);
+      global.addEventListener("pointercancel", this._onRelease, true);
+      global.addEventListener("blur", this._onRelease);
+    }
 
     // Words keep being shed while either end of the trip is on screen: the
     // field where they come from, or About where they land. Watching the
@@ -460,12 +733,23 @@
     if (this._io) this._io.disconnect();
     global.removeEventListener("resize", this._onResize);
     document.removeEventListener("visibilitychange", this._onVisibility);
+    if (this.o.drag) {
+      global.removeEventListener("pointerdown", this._onGrab, true);
+      global.removeEventListener("pointermove", this._onDragMove);
+      global.removeEventListener("pointerup", this._onRelease, true);
+      global.removeEventListener("pointercancel", this._onRelease, true);
+      global.removeEventListener("blur", this._onRelease);
+    }
     if (this.source && this.source.parentElement) {
       this.source.parentElement.removeEventListener("pointerdown", this._onDown);
     }
-    if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
-    this.tokens.length = 0;
+    for (var i = this.tokens.length - 1; i >= 0; i--) this._removeToken(this.tokens[i]);
     this.dust.length = 0;
+    if (this.engine) { M.Events.off(this.engine); M.Composite.clear(this.world, false); M.Engine.clear(this.engine); }
+    if (this.layer && this.layer.parentNode) this.layer.parentNode.removeChild(this.layer);
+    this.bounds = [];
+    this.drag = null;
+    this.dragToken = null;
   };
 
   global.SkillFall = SkillFall;
