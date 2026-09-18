@@ -57,11 +57,17 @@
     landing: "#about",        // the section whose floor catches the words
 
     /* --- landing line ------------------------------------------------
-       About is now a 240vh pinned scene, so its real bottom is a 2500px
-       trip nobody would sit through. 0.35 of the way down is where the
-       name card swings in — the part of the section actually being read. */
-    landRatio: 0.35,
+       About is a 240vh pinned scene whose sticky stage fills the viewport
+       for the whole trip. While it is on screen the floor rides with the
+       viewport (viewClearance below), so a word lands on whichever page of
+       About the reader is looking at — the name card included — instead of
+       a document position that has already scrolled away. */
+    landRatio: 0.35,          // pre-About: how far down the section the floor
+                              // waits, below the fold until the reader arrives
     landOffset: 30,           // px of clearance above the very bottom edge
+    viewClearance: 150,       // px above the bottom of the viewport while the
+                              // About scene is active: words settle beneath the
+                              // name card rather than at the very screen edge
 
     separator: "\u00b7",      // the data-text splits into words on this
     everyMin: 1400,           // ms between spawns
@@ -313,14 +319,31 @@
     return global.scrollY || global.pageYOffset || 0;
   };
 
-  /* The landing line, in document coordinates: `landRatio` of the way down
-     the landing section, never past its bottom edge. */
+  /* The landing line, in document coordinates. Three regimes:
+
+       - pinned (the reader is inside the About scene, sticky stage filling
+         the viewport): the floor rides the viewport, viewClearance above its
+         bottom edge, so words land on whichever page of About is being read
+         — the name card included. A fixed document floor would have scrolled
+         off the top by the second page, and words would fall straight out of
+         the world unseen.
+       - past the scene (its bottom above the fold): rest at the end of the
+         section, so the last words settle where About finishes.
+       - not reached yet (hero still on screen): wait below the fold at the
+         natural landing line; a word landing there holds its fade until the
+         reader scrolls down to it. */
   SkillFall.prototype._landY = function () {
     var r = this.landing.getBoundingClientRect();
     var sy = this._scrollY();
     var top = r.top + sy;
     var bottom = r.bottom + sy;
-    return Math.min(top + (bottom - top) * this.o.landRatio, bottom - this.o.landOffset);
+    var endLine = bottom - this.o.landOffset;
+
+    if (r.top <= 0 && r.bottom >= this.cssH) {
+      return Math.min(sy + this.cssH - this.o.viewClearance, endLine);
+    }
+    if (r.bottom < this.cssH) return endLine;
+    return Math.min(top + (bottom - top) * this.o.landRatio, endLine);
   };
 
   /* Keep the floor under the section even if the layout reflows. Only moved
@@ -474,6 +497,20 @@
         t.x = b.position.x;
         t.y = b.position.y;
         t.angle = b.angle;
+
+        // The floor rides the viewport, so scrolling can pull the ground out
+        // from under a resting word. When that happens it must fall again —
+        // and a word that falls with `landed` still set would freeze mid-air
+        // the moment the fade detaches its body.
+        if (t.landed && !this.dragToken) {
+          var v2 = b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y;
+          if (v2 > 1.44) {           // > 1.2 px/step: it is genuinely moving
+            t.landed = false;
+            t.landedAt = 0;
+            t.restMs = 0;
+            t.held = 0;
+          }
+        }
       }
 
       if (!t.landed) {

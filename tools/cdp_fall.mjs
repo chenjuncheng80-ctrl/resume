@@ -160,15 +160,22 @@ await clear();
 const parked = await scrollTo(landY - 400);
 await sleep(400);
 check('test scaffolding: the page really scrolled', Math.abs(parked - (landY - 400)) < 80, 'scrollY=' + parked);
-await drop('Adobe', 700, landY - 420);
+/* The floor rides the viewport once About is on screen, so the line must be
+   read AFTER parking — the hero-regime value read above is stale here. */
+const floorLine = await ev(`Math.round(window.__skillFall._landY())`);
+check('the floor rides the viewport in the About scene',
+  Math.abs(floorLine - (parked + (await ev('window.innerHeight')) - 150)) < 40 ||
+  floorLine > landY,
+  'floor=' + floorLine + ' hero-line=' + landY);
+await drop('Adobe', 700, floorLine - 420);
 const landedFirst = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 8000);
 const lower = await ev(`(() => { const t = window.__skillFall.tokens[0]; return t ? { y: Math.round(t.y), h: t.h, landed: t.landed } : null; })()`);
 check('a word lands and the landing is noticed', landedFirst && lower && lower.landed, JSON.stringify(lower));
 check('it rests on the landing line, not through it',
-  lower && Math.abs(lower.y + lower.h / 2 - landY) < 8,
-  'bottom=' + (lower && Math.round(lower.y + lower.h / 2)) + ' line=' + landY);
+  lower && Math.abs(lower.y + lower.h / 2 - floorLine) < 8,
+  'bottom=' + (lower && Math.round(lower.y + lower.h / 2)) + ' line=' + floorLine);
 
-await drop('Blender', 700, landY - 420);
+await drop('Blender', 700, floorLine - 420);
 const landedSecond = await until(`(() => { const f = window.__skillFall; return f.tokens.length > 1 && f.tokens[1].landed; })()`, 8000);
 const stack = await ev(`(() => { const ts = window.__skillFall.tokens.slice().sort((a,b) => a.y - b.y);
   if (ts.length < 2) return null;
@@ -219,7 +226,8 @@ check('it follows the cursor while held', held && Math.abs(held.x - (before.sx +
 check('and lets go on release', released === true);
 await sleep(1800);
 const afterThrow = await ev(`(() => { const t = window.__skillFall.tokens[0];
-  return t ? { y: Math.round(t.y), line: ${landY} } : { y: null, line: ${landY} }; })()`);
+  var line = Math.round(window.__skillFall._landY());
+  return t ? { y: Math.round(t.y), line: line } : { y: null, line: line }; })()`);
 check('then falls back down to the line', afterThrow.y === null || afterThrow.y > afterThrow.line - 260,
   JSON.stringify(afterThrow));
 
@@ -258,6 +266,49 @@ await mouse('mouseReleased', pluckAt.x, pluckAt.y);
 const afterPluck = await ev('window.__skillFall.tokens.reduce(function (m, t) { return Math.max(m, t.born); }, 0)');
 check('clicking the hero still plucks a word', afterPluck > beforePluck,
   'newest token ' + Math.round(beforePluck) + ' -> ' + Math.round(afterPluck));
+
+/* --- 7b. the fall continues on About's second page ---------------------- */
+// On the name-card page a fixed document floor would sit above the viewport:
+// words would spawn under it and fall straight out of the world. The floor
+// must ride the viewport there, and a word resting on page 1 must re-fall
+// when the ground is pulled out from under it instead of freezing mid-air.
+const aboutTopDoc = await ev(`document.querySelector('#about').offsetTop`);
+await clear();
+await scrollTo(aboutTopDoc + 120);
+await sleep(400);
+const floorP1 = await ev(`Math.round(window.__skillFall._landY())`);
+check('page 1: the floor rides the viewport once the scene is pinned',
+  Math.abs(floorP1 - (aboutTopDoc + 120 + (await ev('window.innerHeight')) - 150)) < 30,
+  'floor=' + floorP1);
+await drop('Lightroom', 700, floorP1 - 420);
+const restedP1 = await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 9000);
+const posP1 = await ev(`(() => { const t = window.__skillFall.tokens[0];
+  return t ? { y: Math.round(t.y), sy: Math.round(window.scrollY) } : null; })()`);
+check('page 1: a word rests on the riding floor', restedP1 && posP1 &&
+  Math.abs(posP1.y - floorP1) < 60, JSON.stringify(posP1) + ' floor=' + floorP1);
+
+await scrollTo(aboutTopDoc + 1300);
+await sleep(600);
+const cardP2 = await ev(`(() => { var r = document.querySelector('.namecard').getBoundingClientRect();
+  return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; })()`);
+check('page 2: the name card is centred in view',
+  cardP2.top > 0 && cardP2.bottom < (await ev('window.innerHeight')), JSON.stringify(cardP2));
+check('page 2: the spawn source is still live',
+  (await ev('window.__skillFall.aboutVisible')) === true);
+
+const chased = await until(`(() => { const f = window.__skillFall; const t = f.tokens[0];
+  return t && t.landed && (t.y - window.scrollY) > ${cardP2.bottom}; })()`, 12000);
+const posP2 = await ev(`(() => { const t = window.__skillFall.tokens[0];
+  return t ? { y: Math.round(t.y), yView: Math.round(t.y - window.scrollY),
+    landed: t.landed, op: +(+t.el.style.opacity).toFixed(3),
+    floor: Math.round(window.__skillFall._landY()) } : null; })()`);
+check('page 2: the word left behind re-falls to the new floor',
+  chased && posP2 && posP2.landed &&
+  Math.abs(posP2.y - posP2.floor) < 60 &&
+  posP2.yView > cardP2.bottom && posP2.yView < (await ev('window.innerHeight')),
+  JSON.stringify(posP2));
+check('page 2: it did not freeze mid-air, it is still fading',
+  posP2 && posP2.op > 0.02 && posP2.op < 0.5, 'op=' + (posP2 && posP2.op));
 
 /* --- 8. nothing leaked ------------------------------------------------- */
 await clear();
