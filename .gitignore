@@ -1,3 +1,6 @@
 # Local agent workspace: DOM snapshots, measurements, session notes.
 # Contains private details (contact info, drafts) — never push it.
 .workbuddy/
+
+# Throwaway Chrome profile used by the CDP probes in tools/ (cdp_*.mjs).
+.chrome-probe/
