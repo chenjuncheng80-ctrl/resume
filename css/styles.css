@@ -262,6 +262,22 @@ body.nav-light .scroll-progress {
   pointer-events: none;
   z-index: 0;
 }
+/* Falling skill words (js/skill-fall.js): words plucked out of the hero glyph
+   field, dropping down the page until they settle on the About section. Fixed
+   to the viewport so they can travel past the hero, above the ripple they came
+   from, below the nav (50) and the cursor (2147483647). */
+.skill-fall {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skill-fall { display: none; }
+}
+
 .hero__stage {
   width: 100%; max-width: none;
   /* auto block margins centre the stage in whatever space is left above the
