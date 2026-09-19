@@ -74,6 +74,18 @@ const mouse = (type, x, y) =>
     clickCount: 1,
   });
 
+/* Where the custom reticle is drawn and what it is locked to. The dot is meant
+   to sit at the pointer; when the two disagree the reticle has been stranded.
+   Wait out the 0.1s follow tween before reading it. */
+const reticle = () => ev(`(() => { const c = window.__targetCursor;
+  if (!c) return { gap: -1, lock: null, pointer: null };
+  const d = document.querySelector('.target-cursor-dot').getBoundingClientRect();
+  return { gap: Math.round(Math.hypot(
+             Math.round(d.left + d.width / 2) - c.pointer.x,
+             Math.round(d.top + d.height / 2) - c.pointer.y)),
+           lock: c.activeTarget ? String(c.activeTarget.className) : null,
+           pointer: [Math.round(c.pointer.x), Math.round(c.pointer.y)] }; })()`);
+
 const results = [];
 function check(name, ok, detail) {
   results.push({ name, ok: !!ok });
@@ -215,6 +227,19 @@ check('it leaves the simulation once half faded', late && late.detached === true
 check('and is gone by five seconds', gone.n === 0 && gone.els === 0, JSON.stringify(gone));
 
 /* --- 6. pick one up ---------------------------------------------------- */
+/* A control to carry the word over. The nav is fixed, so it is on screen at
+   every scroll position the fall cares about. */
+const navLink = await ev(`(() => { const a = document.querySelector('.nav__link');
+  const r = a.getBoundingClientRect();
+  return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+await mouse('mouseMoved', navLink.x, navLink.y);
+await sleep(450);
+const parkedLock = await reticle();
+check('a plain hover still locks the brackets to a control',
+  /nav__link/.test(String(parkedLock.lock)), String(parkedLock.lock));
+await mouse('mouseMoved', 700, 320);
+await sleep(350);
+
 await clear();
 await drop('Figma', 500, parked2 + 120);
 await until(`(() => { const f = window.__skillFall; return f.tokens.length && f.tokens[0].landed; })()`, 9000);
@@ -224,18 +249,44 @@ await mouse('mousePressed', before.sx, before.sy);
 await sleep(80);
 const grabbed = await ev(`window.__skillFall.dragToken && window.__skillFall.dragToken.word`);
 check('a word can be picked up with the mouse', grabbed === 'Figma', String(grabbed));
+check('...and the page is told the pointer is spoken for',
+  (await ev(`document.documentElement.classList.contains('is-dragging-word')`)) === true);
 await mouse('mouseMoved', before.sx + 40, before.sy - 60);
 await sleep(60);
 await mouse('mouseMoved', before.sx + 120, before.sy - 180);
 await sleep(600);
 const held = await ev(`(() => { const t = window.__skillFall.dragToken; if (!t) return null;
   return { x: Math.round(t.x), y: Math.round(t.y), sy: Math.round(window.scrollY) }; })()`);
-await mouse('mouseReleased', before.sx + 120, before.sy - 180);
+
+/* The press cancels pointerdown, so it cannot start a text selection — and the
+   browser then withholds every compatibility mouse event for the rest of the
+   drag. The reticle rides pointer events for exactly this reason: listening to
+   mousemove left it frozen at the point of the press, which is where the whole
+   drag happened. It also has to stay out of the way of anything the word is
+   carried over rather than fly off to frame it. */
+await mouse('mouseMoved', navLink.x, navLink.y);
+await sleep(600);
+const follow = await reticle();
+check('the reticle travels with the pointer while a word is held',
+  follow.gap >= 0 && follow.gap < 6, 'gap=' + follow.gap + 'px at ' + JSON.stringify(follow.pointer));
+check('...and does not abandon the word for what it passes over',
+  follow.lock === null, String(follow.lock));
+await mouse('mouseReleased', navLink.x, navLink.y);
 await sleep(150);
 const released = await ev(`window.__skillFall.drag === null && window.__skillFall.dragToken === null`);
 check('it follows the cursor while held', held && Math.abs(held.x - (before.sx + 120)) < 110,
   JSON.stringify(held));
 check('and lets go on release', released === true);
+check('the pointer goes back to the page on release',
+  (await ev(`document.documentElement.classList.contains('is-dragging-word')`)) === false);
+await mouse('mouseMoved', 700, 320);
+await sleep(300);
+await mouse('mouseMoved', navLink.x, navLink.y);
+await sleep(450);
+const relocked = await reticle();
+check('...and the brackets lock onto controls again',
+  /nav__link/.test(String(relocked.lock)), String(relocked.lock));
+await mouse('mouseMoved', 700, 320);
 await sleep(1800);
 const afterThrow = await ev(`(() => { const t = window.__skillFall.tokens[0];
   var line = Math.round(window.__skillFall._landY());

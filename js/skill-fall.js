@@ -705,10 +705,14 @@
     this.dragToken = t;
     M.Composite.add(this.world, this.drag);
     t.el.classList.add("is-held");
+    // Told to the rest of the page: a word in hand owns the pointer, so the
+    // custom reticle must not go locking onto cards the drag passes over.
+    document.documentElement.classList.add("is-dragging-word");
     this._wake();
   };
 
   SkillFall.prototype._endDrag = function () {
+    document.documentElement.classList.remove("is-dragging-word");
     if (this.drag) {
       try { M.Composite.remove(this.world, this.drag); } catch (e) { /* gone */ }
       this.drag = null;
@@ -809,6 +813,7 @@
     if (this.engine) { M.Events.off(this.engine); M.Composite.clear(this.world, false); M.Engine.clear(this.engine); }
     if (this.layer && this.layer.parentNode) this.layer.parentNode.removeChild(this.layer);
     this.bounds = [];
+    this._endDrag();
     this.drag = null;
     this.dragToken = null;
   };

@@ -25,6 +25,15 @@
    - prefers-reduced-motion: the reticle is a cursor affordance,
      not decoration, so it stays — but the perpetual spin and the
      corner parallax are switched off.
+   - The original binds mousemove / mouseover / mousedown. We bind the
+     pointer-event equivalents instead: any page that cancels pointerdown
+     — dragging a falling word does, to stop the press starting a text
+     selection — makes the browser withhold every compatibility mouse
+     event for the rest of that interaction, and a mousemove-based
+     reticle simply freezes where the press happened.
+   - `suspendSelector` is a local addition: while it matches, the
+     reticle refuses to lock onto targets, so a gesture that owns the
+     pointer (the same word drag) is not fought over by the brackets.
    ========================================================= */
 
 (function (global) {
@@ -207,6 +216,12 @@
     // target's corners: the mouse can roam inside a button and nothing moves.
     // Raise it a couple of px if you want a hint of drift back.
     parallaxAmount: 0,
+    // While anything matches this selector the reticle will not lock onto a
+    // target. For gestures that own the pointer themselves — dragging a falling
+    // word across the page — the pointer passes over cards and tags on the way,
+    // and the brackets must stay with the thing in hand rather than abandon it
+    // to frame whatever it happened to cross.
+    suspendSelector: null,
     root: null            // the portal target; defaults to <body>
   };
 
@@ -528,6 +543,8 @@
 
   /* --- target enter ----------------------------------------------------- */
   TargetCursor.prototype._enter = function (e) {
+    if (this.o.suspendSelector && document.querySelector(this.o.suspendSelector)) return;
+
     var sel = this.o.targetSelector;
     var all = [];
     var cur = e.target;
@@ -604,17 +621,41 @@
   TargetCursor.prototype._bind = function () {
     var self = this;
 
+    /* Pointer events, not mouse events.
+       Cancelling pointerdown is a normal thing for a page to do — the
+       falling-word drag does it so a press on a word cannot start a text
+       selection — and the browser then withholds every compatibility mouse
+       event for the rest of that interaction. Listening to mousemove meant the
+       reticle froze at the point of the press and stayed behind while the word
+       travelled across the screen. Pointer events keep arriving whether or not
+       the press was cancelled. (The constructor already rules out touch; a
+       touchscreen laptop can still reach here, so a finger is ignored.) */
+    var PE = "onpointermove" in global;
+    this._EV = {
+      move: PE ? "pointermove" : "mousemove",
+      over: PE ? "pointerover" : "mouseover",
+      down: PE ? "pointerdown" : "mousedown",
+      up: PE ? "pointerup" : "mouseup"
+    };
+    var notAFinger = function (e) { return e.pointerType !== "touch"; };
+
     this._onMove = function (e) {
+      if (!notAFinger(e)) return;
       self.pointer.x = e.clientX;
       self.pointer.y = e.clientY;
       self._moveCursor(e.clientX, e.clientY);
     };
-    this._onOver = function (e) { self._enter(e); };
-    this._onDown = function () {
+    this._onOver = function (e) {
+      if (!notAFinger(e)) return;
+      self._enter(e);
+    };
+    this._onDown = function (e) {
+      if (!notAFinger(e)) return;
       self.dotAnim.to({ scale: 0.7 }, 0.3);
       self.wrapAnim.to({ scale: 0.9 }, 0.2);
     };
-    this._onUp = function () {
+    this._onUp = function (e) {
+      if (!notAFinger(e)) return;
       self.dotAnim.to({ scale: 1 }, 0.3);
       self.wrapAnim.to({ scale: 1 }, 0.2);
     };
@@ -630,10 +671,10 @@
     };
     this._onResize = function () { self.containingBlock = getContainingBlock(self.wrap); };
 
-    global.addEventListener("mousemove", this._onMove);
-    global.addEventListener("mouseover", this._onOver, { passive: true });
-    global.addEventListener("mousedown", this._onDown);
-    global.addEventListener("mouseup", this._onUp);
+    global.addEventListener(this._EV.move, this._onMove, { passive: true });
+    global.addEventListener(this._EV.over, this._onOver, { passive: true });
+    global.addEventListener(this._EV.down, this._onDown);
+    global.addEventListener(this._EV.up, this._onUp);
     global.addEventListener("scroll", this._onScroll, { passive: true });
     global.addEventListener("resize", this._onResize);
   };
@@ -642,10 +683,10 @@
     if (this.disabled) return;
     if (this.tickerFn) removeTicker(this.tickerFn);
     if (this._spinTicker) removeTicker(this._spinTicker);
-    global.removeEventListener("mousemove", this._onMove);
-    global.removeEventListener("mouseover", this._onOver);
-    global.removeEventListener("mousedown", this._onDown);
-    global.removeEventListener("mouseup", this._onUp);
+    global.removeEventListener(this._EV.move, this._onMove);
+    global.removeEventListener(this._EV.over, this._onOver);
+    global.removeEventListener(this._EV.down, this._onDown);
+    global.removeEventListener(this._EV.up, this._onUp);
     global.removeEventListener("scroll", this._onScroll);
     global.removeEventListener("resize", this._onResize);
     this._cleanupLeave(this.activeTarget);
@@ -706,6 +747,8 @@
       hoverDuration: 0.2,
       parallaxOn: true,
       parallaxAmount: 0,      // brackets weld to the corners, nothing drifts
+      // a word in hand outranks whatever the pointer is passing over
+      suspendSelector: "html.is-dragging-word",
       proximity: 90,              // far: closed square + dot; near a control: the open spinning ring
       cursorColor: "#ffffff"      // difference blend: dark on paper, white on the dark sections
     });
