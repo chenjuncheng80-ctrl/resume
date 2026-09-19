@@ -178,6 +178,14 @@
     if (options) for (k in options) if (Object.prototype.hasOwnProperty.call(options, k)) o[k] = options[k];
     this.o = o;
 
+    /* Phone. The pile at the foot of the card page is a desktop joke that
+       turns into clutter on a 390px screen — a handful of words at a readable
+       size reads better than six at full size, and costs less to simulate. */
+    if (global.matchMedia && global.matchMedia("(pointer: coarse)").matches) {
+      o.maxTokens = Math.min(o.maxTokens, 4);
+      o.fontSize = Math.min(o.fontSize, 14);
+    }
+
     // Without the solver there is no effect at all — degrade to a quiet page
     // rather than throwing on every frame.
     if (!M || !M.Engine) return;

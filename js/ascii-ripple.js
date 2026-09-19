@@ -197,6 +197,24 @@
     }
 
     var o = this.opts;
+
+    /* Phone. A 390px window at the desktop settings packs the same glyph grid
+       into a ninth of the area — the field turns into a dense grey cloth that
+       fights the headline, and the sim is doing ~25k cells a frame for it.
+       Bigger glyphs, coarser sim: fewer cells, more air, cheaper. A size
+       handed in through the options object still wins; the data-* attributes
+       on the canvas are the desktop values and are meant to be overridden. */
+    if (global.matchMedia && global.matchMedia("(pointer: coarse)").matches &&
+        global.innerWidth < 760) {
+      if (!options || options.fontSize === undefined) o.fontSize = Math.max(o.fontSize, 22);
+      if (!options || options.resolution === undefined) o.resolution = Math.min(o.resolution, 3);
+      if (!options || options.maxDPR === undefined) o.maxDPR = Math.min(o.maxDPR, 2);
+      /* and quieter: on a phone the field sits behind the whole screen rather
+         than around a centred column, so at full strength it reads as a wall
+         of words competing with the headline instead of a texture behind it */
+      if (!options || options.textOpacity === undefined) o.textOpacity = Math.min(o.textOpacity, 0.055);
+    }
+
     this.chars = String(o.chars || DEFAULTS.chars);
     this.garbleChars = String(o.garbleChars || DEFAULTS.garbleChars);
     this.text = String(o.text || "");
