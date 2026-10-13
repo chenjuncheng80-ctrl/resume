@@ -24,6 +24,9 @@
 
   --maxw: 1200px;
   --pad: clamp(1.25rem, 4vw, 3rem);
+  --gutter: max(var(--pad), calc((100% - var(--maxw)) / 2));
+  --nav-height: 72px;
+  --section-space: clamp(4.5rem, 7.5vw, 7rem);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -31,6 +34,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--nav-height) + 16px);
   /* iOS re-inflates body copy when the phone is turned sideways unless this
      is pinned to 100%. */
   -webkit-text-size-adjust: 100%;
@@ -61,14 +65,22 @@ body {
 a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; }
 ul { list-style: none; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 5px; }
+main:focus { outline: none; }
+.skip-link {
+  position: fixed; top: 1rem; left: var(--gutter); z-index: 150;
+  padding: 0.75rem 1rem; background: var(--bg); color: var(--ink);
+  border-radius: 8px; transform: translateY(-180%);
+}
+.skip-link:focus { transform: none; }
 
 /* ---------- Reveal on scroll ---------- */
 .reveal {
-  opacity: 0;
-  transform: translateY(28px);
   transition: opacity 0.9s var(--ease), transform 0.9s var(--ease);
   transition-delay: calc(var(--i, 0) * 90ms);
 }
+html.reveal-ready .reveal:not(.is-visible) { opacity: 0; transform: translateY(28px); }
 .reveal.is-visible { opacity: 1; transform: none; }
 
 /* ---------- Navigation ---------- */
@@ -76,10 +88,12 @@ ul { list-style: none; }
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 50;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   justify-content: space-between;
-  padding: 0.9rem var(--pad);
+  min-height: var(--nav-height);
+  padding: 0.75rem var(--gutter);
   background: rgba(18, 18, 18, 0.92);
   transition: background 0.4s var(--ease), box-shadow 0.4s var(--ease), backdrop-filter 0.4s;
 }
@@ -108,7 +122,7 @@ ul { list-style: none; }
   font-weight: 700; letter-spacing: -0.01em; color: #f1efe9;
   transition: color 0.35s var(--ease);
 }
-.nav__links { display: flex; align-items: center; gap: 1.6rem; }
+.nav__links { display: flex; align-items: center; gap: 1.5rem; }
 .nav__link {
   font-size: 0.85rem; font-weight: 600;
   color: var(--dark-muted);
@@ -147,6 +161,7 @@ ul { list-style: none; }
   position: relative;
   z-index: 60;              /* stays above the mobile menu panel */
   display: inline-flex;
+  justify-self: end;
   align-items: center;
   gap: 2px;
   padding: 2px;
@@ -160,7 +175,8 @@ ul { list-style: none; }
   border: 0;
   background: transparent;
   cursor: pointer;
-  padding: 0.22rem 0.6rem;
+  min-width: 36px; min-height: 32px;
+  padding: 0.3rem 0.6rem;
   border-radius: 8px;
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -234,7 +250,7 @@ body.nav-light .scroll-progress {
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  padding: 5rem 0 0;   /* no inline padding: the title needs the full width */
+  padding: calc(var(--nav-height) + 24px) 0 0;
   overflow: hidden;
   background:
     radial-gradient(1200px 600px at 85% -10%, #ece9e1 0%, transparent 60%),
@@ -269,6 +285,7 @@ body.nav-light .scroll-progress {
   display: block;
   pointer-events: none;
   z-index: 0;
+  opacity: 0.65;
 }
 /* Falling skill words (js/skill-fall.js): words plucked out of the hero glyph
    field and dropped into a matter-js world, so they stack on each other and
@@ -343,7 +360,7 @@ body.nav-light .scroll-progress {
   font-weight: 400;
   /* the bottom margin now carries the gap that used to be subtitle + subtitle
      margin, so the buttons still sit clear of the title */
-  margin: clamp(0.5rem, 1.4vw, 1rem) 0 clamp(1.6rem, 3.2vw, 2.6rem);
+  margin: clamp(1.25rem, 2.5vw, 2rem) 0 1.5rem;
 }
 
 /* The pointer reaction tilts this element; `perspective` is set on the parent
@@ -360,6 +377,22 @@ body.nav-light .scroll-progress {
 }
 .hero__title-heavy { font-weight: 900; }
 .hero__title-light { font-weight: 300; letter-spacing: -0.02em; }
+.hero__caption {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 0.2rem 1rem;
+  padding-inline: var(--pad); color: var(--muted);
+  font-size: clamp(0.82rem, 1.2vw, 1rem); line-height: 1.8;
+  margin-bottom: 2rem;
+}
+.hero__caption span { white-space: nowrap; }
+.hero__caption span + span::before { content: "·"; margin-right: 1rem; }
+.hero__explore {
+  display: inline-flex; align-items: center; gap: 0.75rem;
+  margin-top: 2rem; min-height: 44px;
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.hero__explore span:last-child { font-size: 1.15rem; }
+body.is-past-hero .skill-fall { visibility: hidden; }
 
 /* the hero itself is unpadded so the title can span the viewport; the button
    row keeps the page gutter */
@@ -376,7 +409,8 @@ body.nav-light .scroll-progress {
      .btn 53px -> 18px | .filter 37px -> 13px | .tag 40px -> 14px
      .nav__link--cta 38px -> 13px | .lang-switch 28px -> 10px | __opt 22px -> 8px */
 .btn {
-  display: inline-flex; align-items: center;
+  display: inline-flex; align-items: center; justify-content: center; gap: 1rem;
+  min-height: 52px;
   padding: 0.85rem 1.7rem;
   border-radius: 18px;
   font-weight: 600; font-size: 0.92rem;
@@ -390,6 +424,8 @@ body.nav-light .scroll-progress {
 .btn--dark:hover { background: #2c2c2c; }
 .btn--ghost { border-color: var(--line); color: var(--ink); background: transparent; }
 .btn--ghost:hover { border-color: var(--ink); }
+.btn--light { background: var(--bg); color: var(--ink); }
+.btn--light:hover { background: #fff; }
 
 /* the disc above the title, as in the reference composition */
 .hero__portrait {
@@ -446,13 +482,13 @@ body.nav-light .scroll-progress {
 
 /* ---------- Sections ---------- */
 .section {
-  padding: clamp(4rem, 9vw, 8rem) var(--pad);
-  scroll-margin-top: 5rem;
+  padding: var(--section-space) var(--pad);
+  scroll-margin-top: 0;
 }
 .section--dark { background: var(--dark); color: #f1efe9; }
 .section__head {
-  max-width: var(--maxw); margin: 0 auto 3rem;
-  display: flex; align-items: baseline; gap: 1.2rem;
+  max-width: var(--maxw); margin: 0 auto clamp(2rem, 3.5vw, 3rem);
+  display: flex; align-items: baseline; gap: 1rem;
   /* raised over js/skill-fall.js (3): a word falling past must never land
      on top of a heading */
   position: relative;
@@ -485,13 +521,13 @@ body.nav-light .scroll-progress {
   font-size: clamp(1.5rem, 3.4vw, 2.6rem);
   line-height: 1.25;
   letter-spacing: -0.01em;
-  max-width: 46rem;
+  max-width: 54rem;
   margin-bottom: 2.5rem;
 }
 .about__big strong { font-weight: 500; }
 .about__grid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 2rem; margin-bottom: 3rem;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.5rem, 5vw, 4rem); margin-bottom: 2.5rem;
   color: var(--muted);
 }
 .about__grid p { max-width: 32rem; }
@@ -524,7 +560,8 @@ body.nav-light .scroll-progress {
 .section--pin { padding-block: 0; }
 .pin { position: relative; }
 .pin__stage { position: relative; }
-.pin__layer--card { display: none; }
+.pin__layer--card { display: grid; place-items: center; margin-top: 3rem; }
+html:not(.pin-ready) .section--pin { padding-block: var(--section-space); }
 
 html.pin-ready .pin { height: var(--pin-runway, 240vh); }
 html.pin-ready .pin__stage {
@@ -540,7 +577,7 @@ html.pin-ready .pin__stage {
   --card-in: 0;
 }
 html.pin-ready .pin__layer {
-  position: absolute; inset: 0;
+  position: absolute; inset: var(--nav-height) 0 0;
   display: grid; place-items: center;
   will-change: transform, opacity;
   /* Over the falling words (3), so the card and the About copy are never
@@ -555,11 +592,11 @@ html.pin-ready .pin__layer {
    otherwise keep swallowing presses meant for a word lying underneath it. */
 html.pin-ready .pin__layer--about.is-live .pin__fit,
 html.pin-ready .pin__layer--card.is-live .namecard { pointer-events: auto; }
-html.pin-ready .pin__layer--card { display: grid; }
+html.pin-ready .pin__layer--card { display: grid; margin-top: 0; }
 
 .pin__fit {
   width: 100%;
-  padding: clamp(1.5rem, 4vw, 3rem) var(--pad);
+  padding: 0;
   transform: scale(var(--fit, 1));
   transform-origin: center center;
   position: relative;
@@ -632,6 +669,7 @@ html.pin-ready .pin__layer--card {
   color: var(--muted);
 }
 .namecard__row dd { margin: 0; text-align: right; }
+.namecard__row dd { min-width: 0; overflow-wrap: anywhere; }
 .namecard__row a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
 .namecard__note {
   margin-top: 1.6rem;
@@ -658,7 +696,9 @@ html.pin-ready .pin__layer--card {
 }
 .timeline__item {
   position: relative;
-  padding: 0 0 3rem 3rem;
+  display: grid; grid-template-columns: minmax(180px, 0.75fr) minmax(0, 2fr);
+  gap: 2.5rem;
+  padding: 0 0 3rem 2rem;
 }
 .timeline__item:last-child { padding-bottom: 0; }
 .timeline__dot {
@@ -670,8 +710,9 @@ html.pin-ready .pin__layer--card {
 }
 .timeline__dot.is-drawn { transform: scale(1); }
 .timeline__meta {
-  display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem;
-  align-items: baseline;
+  display: flex; flex-direction: column; gap: 0.65rem;
+  align-items: flex-start;
+  padding-top: 0.3rem;
   margin-bottom: 0.6rem;
 }
 .timeline__date {
@@ -698,12 +739,13 @@ html.pin-ready .pin__layer--card {
 /* ---------- Education ---------- */
 .edu {
   max-width: var(--maxw); margin: 0 auto;
-  display: grid; grid-template-columns: 1fr 1fr;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
 }
 .edu__card {
   border: 1px solid var(--line);
-  padding: 2.2rem;
+  padding: clamp(1.5rem, 3vw, 2.2rem);
+  border-radius: 12px; min-height: 200px;
   display: flex; flex-direction: column; gap: 0.5rem;
   background: var(--paper);
   transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
@@ -719,9 +761,10 @@ html.pin-ready .pin__layer--card {
 /* ---------- Skills ---------- */
 .skills {
   max-width: var(--maxw); margin: 0 auto;
-  display: grid; grid-template-columns: 1.3fr 1fr 1fr;
-  gap: 3rem;
+  display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr));
+  gap: clamp(1.5rem, 4vw, 3rem);
 }
+.skills__col { border-top: 1px solid var(--line); padding-top: 1.5rem; min-width: 0; }
 .skills__heading {
   font-family: var(--font-mono); font-size: 0.8rem;
   letter-spacing: 0.12em; text-transform: uppercase;
@@ -776,13 +819,20 @@ html.pin-ready .pin__layer--card {
 .tag:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
 /* ---------- Portfolio ---------- */
+.work__intro {
+  max-width: var(--maxw); margin: -0.75rem auto 2rem;
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1.5rem; color: var(--muted); font-size: 0.95rem;
+}
+.work__count { font-family: var(--font-mono); font-size: 0.72rem; white-space: nowrap; }
 .filters {
-  max-width: var(--maxw); margin: -1rem auto 2.5rem;
+  max-width: var(--maxw); margin: 0 auto 2rem;
   display: flex; flex-wrap: wrap; gap: 0.5rem;
 }
 .filter {
   font-family: var(--font-mono);
   font-size: 0.8rem; letter-spacing: 0.03em;
+  min-height: 44px;
   padding: 0.55rem 1.15rem;
   border-radius: 13px;
   border: 1px solid var(--line);
@@ -797,23 +847,32 @@ html.pin-ready .pin__layer--card {
 .grid {
   max-width: var(--maxw); margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: 300px;
-  gap: 1.2rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2rem 1.5rem;
   perspective: 1400px;
 }
 .card {
   position: relative;
   overflow: hidden;
-  background: var(--dark-2);
-  display: block;
-  border-radius: 2px;
+  background: var(--paper); color: var(--ink);
+  display: flex; flex-direction: column; min-width: 0;
+  border: 1px solid var(--line); border-radius: 12px;
   transform-style: preserve-3d;
   will-change: transform;
-  transition: box-shadow 0.4s var(--ease);
+  transition: box-shadow 0.4s var(--ease), border-color 0.4s var(--ease);
 }
+.card__media { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--bg-alt); }
+.card__open {
+  position: absolute; right: 1rem; bottom: 1rem;
+  width: 40px; height: 40px; display: grid; place-items: center;
+  background: rgba(250,249,246,0.94); color: var(--ink); border-radius: 50%;
+  font-size: 1.15rem; transition: transform 0.3s var(--ease);
+}
+.card:hover .card__open { transform: translateY(-3px); }
+.card:focus-visible { outline-offset: 4px; }
 .card:hover {
-  box-shadow: 0 30px 60px -20px rgba(0,0,0,0.45);
+  box-shadow: 0 12px 32px -20px rgba(0,0,0,0.3);
+  border-color: #c8c5bc;
   z-index: 2;
 }
 .card.is-hidden { display: none; }
@@ -830,33 +889,33 @@ html.pin-ready .pin__layer--card {
 }
 .card:hover .card__img { transform: scale(1.05); }
 .card__overlay {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; justify-content: flex-end;
-  padding: 1.5rem;
-  background: linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.78) 100%);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start; gap: 0.65rem 1rem;
+  padding: 1.25rem; flex: 1;
 }
 .card__cat {
   font-family: var(--font-mono); font-size: 0.72rem;
   letter-spacing: 0.1em; text-transform: uppercase;
-  color: rgba(255,255,255,0.7); margin-bottom: 0.5rem;
+  color: var(--muted); margin: 0; line-height: 1.5;
 }
 .card__title {
   font-family: var(--font-display); font-weight: 400;
-  font-size: 1.45rem; color: #fff;
-  letter-spacing: -0.01em; line-height: 1.15;
-  max-width: 20ch;
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem); color: var(--ink);
+  letter-spacing: -0.01em; line-height: 1.3;
+  grid-column: 1 / -1; grid-row: 2;
+  overflow-wrap: anywhere;
 }
 .card__year {
-  margin-top: 0.6rem;
+  margin: 0; grid-column: 2; grid-row: 1; text-align: right;
   font-family: var(--font-mono); font-size: 0.72rem;
-  color: rgba(255,255,255,0.55);
+  color: var(--muted); line-height: 1.5;
 }
 
 /* ---------- Contact ---------- */
 .contact { }
 .contact__inner {
   max-width: var(--maxw); margin: 0 auto;
-  display: grid; grid-template-columns: 1fr 1fr;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(2rem, 6vw, 5rem);
   align-items: start;
 }
@@ -870,20 +929,23 @@ html.pin-ready .pin__layer--card {
 .contact__sub { color: var(--dark-muted); max-width: 30rem; }
 .contact__sub strong { color: #f1efe9; }
 .contact__details { display: flex; flex-direction: column; }
+.contact__lead, .contact__details { min-width: 0; }
+.contact__cta { margin-top: 2rem; }
 .contact__row {
-  display: flex; justify-content: space-between; gap: 1.5rem;
+  display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 1.5rem;
   padding: 1.2rem 0;
   border-bottom: 1px solid var(--line-dark);
   transition: color 0.3s;
 }
 .contact__row:first-child { border-top: 1px solid var(--line-dark); }
 .contact__row .k { color: var(--dark-muted); font-weight: 500; white-space: nowrap; }
-.contact__row .v { font-weight: 600; text-align: right; }
+.contact__row .v { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
 a.contact__row:hover .v { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------- Footer ---------- */
 .footer {
-  padding: 2.5rem var(--pad);
+  padding: 2rem var(--gutter);
+  border-top: 1px solid var(--line-dark);
   background: var(--dark);
   color: var(--dark-muted);
   display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
@@ -893,20 +955,39 @@ a.contact__row:hover .v { text-decoration: underline; text-underline-offset: 3px
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
+  .nav.is-scrolled, .nav.is-scrolled.is-on-dark { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .nav { grid-template-columns: 1fr auto auto; gap: 1rem; }
+  .nav__toggle { display: flex; position: relative; z-index: 60; min-width: 44px; min-height: 44px; justify-content: center; align-items: center; }
+  .nav__links {
+    position: fixed; inset: 0; z-index: 55;
+    flex-direction: column; justify-content: center; gap: 1.5rem;
+    padding: 5.5rem var(--pad) 2rem; overflow-y: auto;
+    background: var(--bg); transform: translateY(-100%); visibility: hidden;
+    transition: transform 0.4s var(--ease), visibility 0.4s;
+  }
+  .nav__links.is-open { transform: none; visibility: visible; }
+  .nav__links .nav__link { font-size: 1.5rem; }
+  .nav__links.is-open .nav__link { color: var(--ink); }
+  .nav__links.is-open .nav__link::after { background: var(--ink); }
+  .nav__links.is-open .nav__link--cta { background: var(--ink); color: var(--bg); }
+  .nav__toggle.is-open span:first-child { transform: translateY(3.5px) rotate(45deg); }
+  .nav__toggle.is-open span:last-child { transform: translateY(-3.5px) rotate(-45deg); }
+  .nav__toggle.is-open span { background: var(--ink); }
   .about__grid { grid-template-columns: 1fr; }
   .about__stats { grid-template-columns: repeat(2, 1fr); }
   .skills { grid-template-columns: 1fr; gap: 2.5rem; }
-  .grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 260px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .contact__inner { grid-template-columns: 1fr; }
-  .edu { grid-template-columns: 1fr; }
+  .timeline__item { grid-template-columns: minmax(140px, 0.7fr) minmax(0, 1.6fr); gap: 1.5rem; }
+  .footer { flex-direction: column; }
 }
 
 @media (max-width: 640px) {
-  .nav.is-scrolled,
-  .nav.is-scrolled.is-on-dark {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
+  :root { --nav-height: 68px; }
+  .nav { gap: 0.5rem; }
+  .nav__brand { gap: 0.5rem; min-width: 0; }
+  .nav__name { font-size: 0.85rem; }
+  .nav__monogram { width: 32px; height: 32px; flex-shrink: 0; }
   .nav__links {
     position: fixed;
     inset: 0;
@@ -939,18 +1020,78 @@ a.contact__row:hover .v { text-decoration: underline; text-underline-offset: 3px
   .hero__portrait { width: 88px; }
   .hero__portrait-text { font-size: 1.9rem; }
   /* the nav is 63px tall; 5rem of hero padding is dead space on a phone */
-  .hero { padding-top: 4.4rem; }
+  .hero { padding-top: calc(var(--nav-height) + 20px); min-height: 100svh; }
   /* :not() because .section--pin below zeroes its own padding, and this block
      comes after it — a plain .section rule of equal weight would win. */
-  .section:not(.section--pin) { padding-block: clamp(3.25rem, 12vw, 5rem); }
+  .section:not(.section--pin) { padding-block: var(--section-space); }
   .section__title { font-size: clamp(1.9rem, 8.6vw, 2.6rem); }
   .timeline__role { font-size: 1.4rem; }
+  .timeline__item { grid-template-columns: 1fr; gap: 0.5rem; }
+  .timeline__meta { margin-bottom: 0.25rem; }
+  .edu { grid-template-columns: 1fr; }
+  .edu__card { min-height: auto; }
   .namecard { padding: 1.5rem; border-radius: 16px; }
   .contact__row { padding: 1rem 0; }
   /* the home indicator sits over the last line of the footer on an iPhone */
   .footer { padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px)); }
-  .grid { grid-template-columns: 1fr; grid-auto-rows: 280px; }
+  .grid { grid-template-columns: 1fr; gap: 1.5rem; }
+  .card__title { font-size: 1.35rem; }
+  .work__intro { flex-direction: column; gap: 0.75rem; }
+  .filter { font-size: 0.7rem; padding-inline: 0.85rem; }
+  .contact__row { grid-template-columns: 60px minmax(0, 1fr); gap: 1rem; font-size: 0.9rem; }
+  .hero__actions { gap: 0.65rem; }
+  .hero__actions .btn { padding: 0.85rem 1.1rem; font-size: 0.8rem; }
+  .hero__caption { max-width: 28rem; padding-inline: 2rem; font-size: 0.8rem; }
+  .hero__caption span:first-child { flex-basis: 100%; }
+  .hero__caption span:nth-child(2)::before { content: none; }
   .footer { flex-direction: column; }
+}
+
+/* Artwork stays uncropped when opened; native dialog supplies focus trapping. */
+.work-viewer {
+  position: fixed; inset: 0; margin: auto;
+  width: min(1100px, calc(100% - 3rem)); max-height: calc(100dvh - 3rem);
+  padding: 0; border: 1px solid var(--line); border-radius: 16px;
+  background: var(--bg); color: var(--ink); overflow-y: auto;
+  box-shadow: 0 24px 100px rgba(0,0,0,0.25);
+}
+.work-viewer::backdrop { background: rgba(18,18,18,0.8); }
+.work-viewer__head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; padding: 0.75rem 1.5rem;
+}
+.work-viewer__meta, #viewerPosition { font: 0.75rem var(--font-mono); color: var(--muted); }
+.work-viewer button {
+  border: 1px solid var(--line); background: transparent; color: inherit;
+  min-height: 44px; padding: 0.5rem 0.9rem; border-radius: 10px;
+  display: inline-flex; justify-content: center; align-items: center; gap: 0.75rem;
+  font-size: 0.8rem; cursor: pointer;
+}
+.work-viewer button:hover { background: var(--bg-alt); border-color: var(--muted); }
+.work-viewer__close { flex-shrink: 0; }
+.work-viewer__close span:last-child { font-size: 1.25rem; line-height: 1; }
+.work-viewer__media { display: grid; place-items: center; background: var(--dark); min-height: 160px; }
+.work-viewer__media img, .work-viewer__media video {
+  width: 100%; max-height: 60dvh; object-fit: contain; display: block;
+}
+.work-viewer__foot { padding: 1.25rem 1.5rem; }
+#viewerTitle { font: 400 clamp(1.3rem, 2.5vw, 2rem) / 1.3 var(--font-display); }
+.work-viewer__notice { color: var(--muted); font-size: 0.85rem; margin-top: 1rem; }
+.work-viewer__nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  border-top: 1px solid var(--line); margin-top: 1.25rem; padding-top: 1rem;
+}
+.work-viewer__nav button:disabled { opacity: 0.4; cursor: default; }
+html.viewer-open, html.menu-open { overflow: hidden; }
+html.viewer-open .target-cursor-wrapper { display: none; }
+html.target-cursor-on.viewer-open, html.target-cursor-on.viewer-open * { cursor: auto !important; }
+html.target-cursor-on.viewer-open button { cursor: pointer !important; }
+@media (max-width: 640px) {
+  .work-viewer { width: calc(100% - 1.5rem); max-height: calc(100dvh - 1.5rem); border-radius: 12px; }
+  .work-viewer__head, .work-viewer__foot { padding-inline: 1rem; }
+  .work-viewer__meta { font-size: 0.65rem; }
+  .work-viewer__nav { gap: 0.5rem; }
+  .work-viewer__nav button { padding-inline: 0.65rem; font-size: 0.72rem; gap: 0.4rem; }
 }
 
 /* ---------- Target cursor (vanilla port of React Bits' TargetCursor) ---------- */
@@ -1032,6 +1173,7 @@ html.target-cursor-on * { cursor: none !important; }
 
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .hero__marquee-track { animation: none; }

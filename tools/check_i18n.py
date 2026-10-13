@@ -44,6 +44,7 @@ class P(HTMLParser):
 
     def _push(self, tag, attrs):
         n = Node(tag, dict(attrs).get("class", ""))
+        n.i18n_key = dict(attrs).get("data-i18n")
         if self.stack:
             self.stack[-1].content.append(("el", n))
         elif self.root is None:
@@ -71,6 +72,8 @@ def collect(n, out):
     # A <script> inside <head>/<body> would otherwise bleed into its parent's text.
     if n.tag in SKIP_TAGS:
         return
+    if n.i18n_key:
+        out.add(n.i18n_key)
     # html/body hold every descendant's text; only their children are worth checking.
     if n.tag not in ("html", "body"):
         t = n.text()

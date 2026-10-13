@@ -119,8 +119,6 @@
     /* contact */
     "Get in touch": "聯絡我",
     "Have a project, a shoot, or a role in mind?": "有項目、拍攝或職位想談談？",
-    "I'm available from 25 May 2026. Let's make something worth looking at twice.":
-      "我由 <strong>2026 年 5 月 25 日</strong>起可以到崗。一起做點值得再看一眼的東西。",
     "Email": "電郵",
     "Phone": "電話",
     "Location": "地點",
@@ -135,6 +133,17 @@
      Used where the English sentence is split by a dynamic node
      (the footer year) and so cannot be matched as plain text. */
   var KEYS = {
+    "skip": "跳至主要內容",
+    "hero.caption": "<span>陳俊丞</span><span>數碼媒體與攝影</span><span>香港</span>",
+    "hero.explore": "向下探索",
+    "namecard.note": "攝影 · 動態設計 · 數碼媒體",
+    "work.intro": "街頭觀察、動態影像，以及數碼媒體的創作實驗。",
+    "contact.intro": "想聊聊攝影、影片或數碼媒體項目？歡迎傳送訊息，與我交流。",
+    "contact.cta": "聊聊你的想法",
+    "viewer.close": "關閉",
+    "viewer.prev": "上一件",
+    "viewer.next": "下一件",
+    "viewer.unavailable": "這段影片暫時無法播放，你仍可查看封面圖片。",
     "footer.rights": "Chan Chun Shing（陳俊丞）。版權所有。"
   };
 

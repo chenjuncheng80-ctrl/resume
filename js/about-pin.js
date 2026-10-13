@@ -61,31 +61,55 @@
     this.cardLayer = this.pin.querySelector(o.cardLayer);
     if (!this.stage || !this.fitEl) return;
 
-    if (global.matchMedia && global.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (global.matchMedia && global.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (this.cardLayer) this.cardLayer.removeAttribute("aria-hidden");
+      return;
+    }
+    this.layoutQuery = global.matchMedia && global.matchMedia("(min-width: 901px) and (min-height: 650px)");
 
     var nav = document.querySelector(o.nav);
     this.navH = nav ? nav.offsetHeight : 0;
 
-    document.documentElement.classList.add("pin-ready");
     this.progress = -1;
     this.frame = 0;
 
     this._bind();
-    this.measure();
-    this.update();
+    this.syncLayout();
   }
+
+  AboutPin.prototype.syncLayout = function () {
+    this.enabled = !this.layoutQuery || this.layoutQuery.matches;
+    document.documentElement.classList.toggle("pin-ready", this.enabled);
+    this.progress = -1;
+    if (this.enabled) {
+      this.measure();
+      this.update();
+    } else {
+      this.stage.removeAttribute("style");
+      if (this.aboutLayer) {
+        this.aboutLayer.removeAttribute("aria-hidden");
+        this.aboutLayer.removeAttribute("inert");
+      }
+      if (this.cardLayer) {
+        this.cardLayer.removeAttribute("aria-hidden");
+        this.cardLayer.removeAttribute("inert");
+      }
+    }
+  };
 
   /* Scale the text block down until it fits a short window. A section that
      was authored for a 900px screen must not be clipped on a 700px one. */
   AboutPin.prototype.measure = function () {
+    if (!this.enabled) return;
     var free = (global.innerHeight - this.navH) * this.o.margin;
     var natural = this.fitEl.offsetHeight;
     this.fit = natural > 0 ? Math.min(1, free / natural) : 1;
     this.stage.style.setProperty("--fit", this.fit.toFixed(4));
-    this.stage.style.paddingTop = this.navH + "px";
+    this.stage.style.setProperty("--nav-height", this.navH + "px");
   };
 
   AboutPin.prototype.update = function () {
+    if (!this.enabled) return;
     var rect = this.pin.getBoundingClientRect();
     var runway = this.pin.offsetHeight - global.innerHeight;
     var p = runway > 0 ? clamp01(-rect.top / runway) : 0;
@@ -109,6 +133,8 @@
       if (textLive !== this.aboutLive) {
         this.aboutLive = textLive;
         this.aboutLayer.classList.toggle("is-live", textLive);
+        this.aboutLayer.setAttribute("aria-hidden", String(!textLive));
+        this.aboutLayer.toggleAttribute("inert", !textLive);
       }
     }
 
@@ -118,6 +144,7 @@
       if (live !== this.cardLive) {
         this.cardLive = live;
         this.cardLayer.classList.toggle("is-live", live);
+        this.cardLayer.toggleAttribute("inert", !live);
         if (live) this.cardLayer.removeAttribute("aria-hidden");
         else this.cardLayer.setAttribute("aria-hidden", "true");
       }
@@ -135,12 +162,12 @@
     };
     this._onResize = function () {
       self.navH = (document.querySelector(self.o.nav) || {}).offsetHeight || 0;
-      self.measure();
-      self.progress = -1;
-      self.update();
+      self.aboutLive = self.cardLive = undefined;
+      self.syncLayout();
     };
     global.addEventListener("scroll", this._onScroll, { passive: true });
     global.addEventListener("resize", this._onResize);
+    document.addEventListener("i18n:change", this._onResize);
 
     // Webfonts land after DOMContentLoaded and change the text height, which
     // is exactly what --fit is measuring.
@@ -157,11 +184,18 @@
     if (this.frame) global.cancelAnimationFrame(this.frame);
     global.removeEventListener("scroll", this._onScroll);
     global.removeEventListener("resize", this._onResize);
+    document.removeEventListener("i18n:change", this._onResize);
     document.documentElement.classList.remove("pin-ready");
-    this.stage.style.paddingTop = "";
+    this.enabled = false;
+    this.stage.style.removeProperty("--nav-height");
     this.stage.style.removeProperty("--fit");
     this.stage.style.removeProperty("--about-out");
     this.stage.style.removeProperty("--card-in");
+    [this.aboutLayer, this.cardLayer].forEach(function (layer) {
+      if (!layer) return;
+      layer.removeAttribute("inert");
+      layer.removeAttribute("aria-hidden");
+    });
   };
 
   global.AboutPin = AboutPin;

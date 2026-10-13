@@ -8,6 +8,7 @@
 
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  if (!reduceMotion && "IntersectionObserver" in window) document.documentElement.classList.add("reveal-ready");
 
   /* ----- Footer year ----- */
   var yearEl = document.getElementById("year");
@@ -17,10 +18,11 @@
   var nav = document.querySelector(".nav");
   var darkSections = document.querySelectorAll(".section--dark");
   var footer = document.querySelector(".footer");
+  var hero = document.querySelector(".hero");
 
   function isNavOverDark() {
     if (!nav) return false;
-    var viewportCenter = window.scrollY + window.innerHeight / 2;
+    var viewportCenter = window.scrollY + nav.offsetHeight / 2;
     var i, section, secTop, secBottom;
     for (i = 0; i < darkSections.length; i++) {
       section = darkSections[i];
@@ -36,6 +38,8 @@
     if (!nav) return;
     nav.classList.toggle("is-scrolled", window.scrollY > 24);
     nav.classList.toggle("is-on-dark", isNavOverDark());
+    document.body.classList.toggle("nav-light", isNavOverDark());
+    document.body.classList.toggle("is-past-hero", hero && hero.getBoundingClientRect().bottom <= nav.offsetHeight);
   }
 
   /* ----- Scroll progress bar ----- */
@@ -171,20 +175,47 @@
   var toggle = document.getElementById("navToggle");
   var links = document.getElementById("navLinks");
   if (toggle && links) {
-    toggle.addEventListener("click", function () {
-      var open = links.classList.toggle("is-open");
+    var menuQuery = window.matchMedia("(max-width: 900px)");
+    var menuBackground = document.querySelectorAll(".hero, main, .footer, .nav__brand, .skip-link");
+    function setMenu(open, restoreFocus) {
+      links.classList.toggle("is-open", open);
       toggle.classList.toggle("is-open", open);
       toggle.setAttribute("aria-expanded", String(open));
-      document.body.style.overflow = open ? "hidden" : "";
+      document.documentElement.classList.toggle("menu-open", open);
+      links.toggleAttribute("inert", menuQuery.matches && !open);
+      menuBackground.forEach(function (el) { el.toggleAttribute("inert", open); });
+      if (restoreFocus) toggle.focus();
+    }
+    toggle.addEventListener("click", function () {
+      var open = !links.classList.contains("is-open");
+      setMenu(open);
+      if (open) links.querySelector("a").focus();
     });
     links.querySelectorAll("a").forEach(function (a) {
       a.addEventListener("click", function () {
-        links.classList.remove("is-open");
-        toggle.classList.remove("is-open");
-        toggle.setAttribute("aria-expanded", "false");
-        document.body.style.overflow = "";
+        if (links.classList.contains("is-open")) {
+          setMenu(false);
+          var section = document.querySelector(a.getAttribute("href"));
+          if (section) {
+            section.setAttribute("tabindex", "-1");
+            section.focus({ preventScroll: true });
+          }
+        }
       });
     });
+    document.addEventListener("keydown", function (e) {
+      if (!links.classList.contains("is-open")) return;
+      if (e.key === "Escape") { e.preventDefault(); setMenu(false, true); }
+      if (e.key === "Tab") {
+        var focusable = Array.prototype.slice.call(links.querySelectorAll("a"))
+          .concat(Array.prototype.slice.call(document.querySelectorAll(".lang-switch__opt")), [toggle]);
+        var index = focusable.indexOf(document.activeElement);
+        e.preventDefault();
+        focusable[(index + (e.shiftKey ? -1 : 1) + focusable.length) % focusable.length].focus();
+      }
+    });
+    if (menuQuery.addEventListener) menuQuery.addEventListener("change", function () { setMenu(false); });
+    setMenu(false);
   }
 
   /* ----- Scroll reveal (stagger via data attribute) ----- */
@@ -231,88 +262,6 @@
       { rootMargin: "-45% 0px -50% 0px", threshold: 0 }
     );
     sections.forEach(function (s) { spy.observe(s); });
-  }
-
-  /* ----- Portfolio category filter ----- */
-  var filters = document.querySelectorAll(".filter");
-  var cards = document.querySelectorAll(".grid .card");
-  var currentFilter = "all";
-
-  filters.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var f = btn.getAttribute("data-filter");
-      if (f === currentFilter) return;
-      currentFilter = f;
-
-      filters.forEach(function (b) {
-        var active = b === btn;
-        b.classList.toggle("is-active", active);
-        b.setAttribute("aria-selected", String(active));
-      });
-
-      var visibleIndex = 0;
-      cards.forEach(function (card) {
-        var cats = (card.getAttribute("data-category") || "").split(" ");
-        var show = f === "all" || cats.indexOf(f) !== -1;
-
-        if (show) {
-          card.classList.remove("is-hidden");
-          card.classList.remove("animate-in");
-          void card.offsetWidth;
-          var delay = visibleIndex * 55;
-          visibleIndex++;
-          card.style.animationDelay = delay + "ms";
-          card.classList.add("animate-in");
-          setTimeout(function (c) {
-            c.classList.remove("animate-in");
-            c.style.animationDelay = "";
-          }, 650 + delay, card);
-        } else {
-          card.classList.add("is-hidden");
-          card.classList.remove("animate-in");
-          card.style.animationDelay = "";
-        }
-      });
-    });
-  });
-
-  /* ----- Lazy video playback (play only when in viewport) ----- */
-  var videos = document.querySelectorAll(".card video");
-  if ("IntersectionObserver" in window && videos.length) {
-    var vio = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          var v = entry.target;
-          if (entry.isIntersecting) {
-            v.play().catch(function () {});
-          } else {
-            v.pause();
-          }
-        });
-      },
-      { threshold: 0.2 }
-    );
-    videos.forEach(function (v) { vio.observe(v); });
-  }
-
-  /* ----- Card 3D tilt (desktop only) ----- */
-  if (!isTouch && !reduceMotion) {
-    cards.forEach(function (card) {
-      card.addEventListener("mousemove", function (e) {
-        var rect = card.getBoundingClientRect();
-        var x = e.clientX - rect.left;
-        var y = e.clientY - rect.top;
-        var cx = rect.width / 2;
-        var cy = rect.height / 2;
-        var rotX = ((y - cy) / cy) * -7;
-        var rotY = ((x - cx) / cx) * 7;
-        card.style.transform =
-          "perspective(1000px) rotateX(" + rotX.toFixed(2) + "deg) rotateY(" + rotY.toFixed(2) + "deg) scale(1.03)";
-      });
-      card.addEventListener("mouseleave", function () {
-        card.style.transform = "";
-      });
-    });
   }
 
   /* ----- Magnetic buttons (desktop only) ----- */

@@ -21,6 +21,7 @@
   </script>
 </head>
 <body data-page-node-id="mhhmfGJCochRSLFbtKy4xr">
+  <a class="skip-link" href="#mainContent" data-i18n="skip">Skip to content</a>
 
   <!-- Shown by js/works.js only when index.html was opened straight from disk:
        that copy is a snapshot and never receives what the admin publishes. -->
@@ -50,7 +51,7 @@
       <button type="button" class="lang-switch__opt is-active" data-lang="en" aria-pressed="true">EN</button>
       <button type="button" class="lang-switch__opt" data-lang="zh" aria-pressed="false">中</button>
     </div>
-    <button class="nav__toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false" data-page-node-id="A28R5gWbtqI0zykCpu0xEJ">
+    <button type="button" class="nav__toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks" data-page-node-id="A28R5gWbtqI0zykCpu0xEJ">
       <span data-page-node-id="0nFDsXGKledXnOHf6HsnIl"></span><span data-page-node-id="OAOrQUbrS3bAcpNAJFVnaH"></span>
     </button>
   </header>
@@ -101,10 +102,14 @@
         </span>
       </h1>
 
+      <p class="hero__caption" data-i18n="hero.caption"><span>Chan Chun Shing</span><span>Digital Media &amp; Photography</span><span>Hong Kong</span></p>
+
       <div class="hero__actions reveal" data-page-node-id="fywbuTU9bRNCfj6sjCdFCs">
         <a href="#work" class="btn btn--dark" data-page-node-id="WuRluBDCvEIy1YUSS20qsi">View Portfolio</a>
         <a href="assets/Chan-Chun-Shing-Resume.pdf" download class="btn btn--ghost" data-page-node-id="qlBE9dbs7diSlTxC32GIIU">Download Resume</a>
       </div>
+
+      <a class="hero__explore" href="#about"><span data-i18n="hero.explore">Scroll to explore</span><span aria-hidden="true">↓</span></a>
 
     </div>
     <div class="hero__marquee" aria-hidden="true" data-page-node-id="RdXqSwCGQXiGHovNeOQAch">
@@ -119,7 +124,7 @@
     </div>
   </section>
 
-  <main data-page-node-id="nX6SuvlW1h7NiIAXwr7LEn">
+  <main id="mainContent" tabindex="-1" data-page-node-id="nX6SuvlW1h7NiIAXwr7LEn">
     <!-- ===== About ===== -->
     <section class="section section--pin" id="about" data-page-node-id="2xv7WNh4cNfBAOYA47eTP0">
       <div class="pin" id="aboutPin" data-pin>
@@ -161,8 +166,8 @@
           </div>
 
 
-          <!-- Stage 2 — the name card. Content is placeholder for now. -->
-          <div class="pin__layer pin__layer--card" aria-hidden="true">
+          <!-- Stage 2 — contact card; shown in normal flow on smaller screens. -->
+          <div class="pin__layer pin__layer--card">
             <article class="namecard">
               <span class="namecard__sheen" aria-hidden="true"></span>
               <p class="namecard__eyebrow">Chan Chun Shing</p>
@@ -174,7 +179,7 @@
                 <div class="namecard__row"><dt>Phone</dt><dd><a href="tel:+85294316413">(852) 9431 6413</a></dd></div>
                 <div class="namecard__row"><dt>Based in</dt><dd>Sha Tin, Hong Kong</dd></div>
               </dl>
-              <p class="namecard__note">Details to follow</p>
+              <p class="namecard__note" data-i18n="namecard.note">Photography · Motion · Digital Media</p>
             </article>
           </div>
 
@@ -299,9 +304,14 @@
         <span class="section__index reveal" data-page-node-id="8gc19wLgiaVzsHRYc8WAaa">05</span>
         <h2 class="section__title reveal" data-page-node-id="FGADRSCDVe9pCWIM72LBcX">Selected Work</h2>
       </div>
-      <div class="filters reveal" id="workFilters" role="tablist" aria-label="Portfolio categories" data-page-node-id="6dz11ActDvzYSsGIiS827h">
+      <div class="work__intro">
+        <p data-i18n="work.intro">Street observations, moving images, and experiments in digital media.</p>
+        <span class="work__count" id="workCount" role="status" aria-live="polite" aria-atomic="true"></span>
+      </div>
+      <div class="filters reveal" id="workFilters" role="group" aria-label="Portfolio categories" data-page-node-id="6dz11ActDvzYSsGIiS827h">
       </div>
       <div class="grid" id="workGrid" data-page-node-id="5sXR0TZmikaA0hRZyZds07"></div>
+      <noscript><p class="section__sub">Enable JavaScript to browse and filter the collection, or <a href="mailto:chenjuncheng80@gmail.com">contact me to see my work</a>.</p></noscript>
     </section>
 
     <!-- ===== Contact ===== -->
@@ -313,7 +323,8 @@
       <div class="contact__inner" data-page-node-id="fG5S3WKcjaavjfIEhH2wP7">
         <div class="contact__lead reveal" data-page-node-id="ebVbZCasXfIU53EuHh8LUC">
           <p class="contact__big" data-page-node-id="C8W8hPvfvjlNqVHW611C5b">Have a project, a shoot, or a role in mind?</p>
-          <p class="contact__sub" data-page-node-id="mTRwHgKUq4rsKc4c7hnLqD">I'm available from <strong data-page-node-id="qEcaDLemkrbCoX5W1HonXB">25 May 2026</strong>. Let's make something worth looking at twice.</p>
+          <p class="contact__sub" data-i18n="contact.intro" data-page-node-id="mTRwHgKUq4rsKc4c7hnLqD">For photography, video, or digital media projects, send me a message and let's talk.</p>
+          <a class="btn btn--light contact__cta" href="mailto:chenjuncheng80@gmail.com"><span data-i18n="contact.cta">Start a conversation</span><span aria-hidden="true">↗</span></a>
         </div>
         <div class="contact__details reveal" data-page-node-id="EGXb05lWlrAhTrATGjNkft">
           <a class="contact__row" href="mailto:chenjuncheng80@gmail.com" data-page-node-id="yr5ue363veSyLscQtLDBvv">
@@ -338,6 +349,23 @@
     <p class="footer__mono" data-page-node-id="o5YrlhOdGZKcLGwgVNVWNk">Designed in black &amp; white — like the city I photograph.</p>
     <p class="footer__mono"><a href="admin.html" data-page-node-id="footer-admin">Manage works</a></p>
   </footer>
+
+  <dialog class="work-viewer" id="workViewer" aria-labelledby="viewerTitle">
+    <div class="work-viewer__head">
+      <p class="work-viewer__meta" id="viewerMeta"></p>
+      <button type="button" class="work-viewer__close" id="viewerClose" autofocus><span data-i18n="viewer.close">Close</span><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="work-viewer__media" id="viewerMedia"></div>
+    <div class="work-viewer__foot">
+      <h2 id="viewerTitle"></h2>
+      <p class="work-viewer__notice" id="viewerNotice" role="status" hidden data-i18n="viewer.unavailable">This video is currently unavailable. You can still view its cover image.</p>
+      <div class="work-viewer__nav">
+        <button type="button" id="viewerPrev"><span aria-hidden="true">←</span><span data-i18n="viewer.prev">Previous</span></button>
+        <span id="viewerPosition" aria-live="polite"></span>
+        <button type="button" id="viewerNext"><span data-i18n="viewer.next">Next</span><span aria-hidden="true">→</span></button>
+      </div>
+    </div>
+  </dialog>
 
   <script src="js/ascii-ripple.js"></script>
   <script src="js/vendor/matter.min.js"></script>
